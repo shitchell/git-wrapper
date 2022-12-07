@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# A custom wrapper around git that adds some useful features for certain
+# subcommands. If a subcommand is not modified by this script, then it is
+# passed through to git.
+
+# Determine the path to the actual git executable
+GIT=$(which -a git | grep -E '^/(usr|bin|opt)' | head -1)
+
+function debug() {
+    if [ -n "${DEBUG}" ]; then
+        echo ${@} >&2
+    fi
+}
+
+# Parse the git args, subcommand, and subcommand args
+declare -ga GIT_ARGS
+declare -ga GIT_SUBCOMMAND_ARGS
+RUN_CMD=1  # whether or not to run the original git command after processing
+GIT_SUBCOMMAND=""
+
+# Determine the git arguments, subcommand, and subcommand arguments
+while [[ ${#} -gt 0 ]]; do
+    case ${1} in
+        # Handle all options that take no arguments
+        -h | --help | --version | --html-path | --man-path | --info-path | \
+        -p | --paginate | -P | --no-pager | --no-replace-objects | --bare | \
+        --literal-pathspecs | --glob-pathspecs | --noglob-pathspecs | \
+        --icase-pathspecs | --no-optional-locks | --no-renames | --exec-path*)
+            debug "no arg: ${1}"
+            GIT_ARGS+=("${1}")
+            shift 1
+            ;;
+
+        # Handle all options that optionally take an argument
+        --git-dir* | --work-tree* | --namespace* | --super-prefix* | \
+        --config-env* | --list-cmds*)
+            debug "arg optional: ${1}"
+            # Determine if the argument contains an equals sign
+            if [[ "${1}" =~ = ]]; then
+                # If it does, then there is no 2nd argument
+                GIT_ARGS+=("${1}")
+                shift 1
+            else
+                # If it doesn't, then there is a 2nd argument to store
+                GIT_ARGS+=("${1}" "${2}")
+                shift 2
+            fi
+            ;;
+
+        # Handle all options that require an argument
+        -C | -c)
+            debug "arg required: ${1}"
+            GIT_ARGS+=("${1}" "${2}")
+            shift 2
+            ;;
+
+        *)
+            # This is the subcommand -- store it and the rest of the args
+            GIT_SUBCOMMAND="${1}"
+            shift 1
+            GIT_SUBCOMMAND_ARGS=("${@}")
+            debug "subcommand: ${GIT_SUBCOMMAND}"
+            debug "subcommand args (${#@}):`printf " '%s'" "${GIT_SUBCOMMAND_ARGS[@]}"`"
+            break
+            ;;
+    esac
+done
+
+
+function run-git-cmd() {
+    debug -e "running: \033[1m${GIT} \033[0;36m$([[ ${#GIT_ARGS[@]} -gt 0 ]] && printf "%q " "${GIT_ARGS[@]}")\033[32m${GIT_SUBCOMMAND}\033[34m$([[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")\033[0m"
+    "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
+}
+
+# Do stuff before running the git command
+debug "begin pre-processing"
+for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"*.sh "${HOME}/.git.d/pre-process.d/"[0-9]*.sh; do
+    debug "sourcing pre-process script: ${filepath}"
+    source "${filepath}"
+done 2>/dev/null
+
+# Run the git command if requested
+[[ ${RUN_CMD} -eq 1 ]] && run-git-cmd
+
+# Do other stuff after running the git command
+debug "begin post-processing"
+for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"*.sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
+    debug "sourcing post-process script: ${filepath}"
+    source "${filepath}"
+done 2>/dev/null

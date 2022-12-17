@@ -3,6 +3,12 @@
 # A custom wrapper around git that adds some useful features for certain
 # subcommands. If a subcommand is not modified by this script, then it is
 # passed through to git.
+#
+# Exit codes:
+# - 0: success
+# - 1: git command failed
+# - 2: pre-process failed
+# - 3: post-process failed
 
 # Determine the path to the actual git executable
 GIT=$(which -a git | grep -E '^/(usr|bin|opt)' | head -1)
@@ -16,7 +22,7 @@ function debug() {
 # Parse the git args, subcommand, and subcommand args
 declare -ga GIT_ARGS
 declare -ga GIT_SUBCOMMAND_ARGS
-RUN_CMD=1  # whether or not to run the original git command after processing
+RUN_GIT_CMD=1  # whether or not to run the original git command after processing
 GIT_SUBCOMMAND=""
 
 # Determine the git arguments, subcommand, and subcommand arguments
@@ -67,25 +73,52 @@ while [[ ${#} -gt 0 ]]; do
     esac
 done
 
-
+# Function to run the specified command
 function run-git-cmd() {
     debug -e "running: \033[1m${GIT} \033[0;36m$([[ ${#GIT_ARGS[@]} -gt 0 ]] && printf "%q " "${GIT_ARGS[@]}")\033[32m${GIT_SUBCOMMAND}\033[34m$([[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")\033[0m"
     "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
 }
+GIT_EXIT_CODE=0
+PRE_EXIT_CODE=0
+POST_EXIT_CODE=0
 
 # Do stuff before running the git command
 debug "begin pre-processing"
-for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"*.sh "${HOME}/.git.d/pre-process.d/"[0-9]*.sh; do
+shopt -s nullglob  # don't fail if glob patterns don't match anything
+for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/pre-process.d/"[0-9]*.sh; do
     debug "sourcing pre-process script: ${filepath}"
     source "${filepath}"
-done 2>/dev/null
+    PRE_EXIT_CODE=${?}
+    if [[ ${PRE_EXIT_CODE} -ne 0 ]]; then
+        echo "pre-process script '$(dirname ${filepath})' failed with exit code ${PRE_EXIT_CODE}" >&2
+        exit ${PRE_EXIT_CODE}
+    fi
+done
+shopt -u nullglob
 
 # Run the git command if requested
-[[ ${RUN_CMD} -eq 1 ]] && run-git-cmd
+if [[ ${RUN_GIT_CMD} -eq 1 ]]; then
+    run-git-cmd
+    GIT_EXIT_CODE=${?}
+    debug "git command exited with ${GIT_EXIT_CODE}"
+    if [[ ${GIT_EXIT_CODE} -ne 0 ]]; then
+        debug "git command failed"
+        # exit ${GIT_EXIT_CODE}
+    fi
+fi
 
 # Do other stuff after running the git command
 debug "begin post-processing"
-for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"*.sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
+shopt -s nullglob  # don't fail if glob patterns don't match anything
+for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
     debug "sourcing post-process script: ${filepath}"
     source "${filepath}"
-done 2>/dev/null
+    POST_EXIT_CODE=${?}
+    if [[ ${POST_EXIT_CODE} -ne 0 ]]; then
+        echo "post-process script '$(dirname ${filepath})' failed with exit code ${POST_EXIT_CODE}" >&2
+        # exit ${POST_EXIT_CODE}
+    fi
+done
+shopt -u nullglob
+
+exit ${GIT_EXIT_CODE}

@@ -10,8 +10,30 @@
 # - 2: pre-process failed
 # - 3: post-process failed
 
-# Determine the path to the actual git executable
-GIT=$(which -a git | grep -E '^/(usr|bin|opt)' | head -1)
+# Determine the path to the actual git executable.
+#
+# First: look specifically for /usr/bin/git.
+# Second: if that does not exist, look for any executable that does not have
+# /home/ anywhere in the filepath and does contain /usr/, /bin/, or /opt/. We no
+# longer look for an exectuable specifically in the root level directories to
+# ensure compatibility with lightly chrooted environments where the system level
+# /bin/ and /usr/bin/ directories are not actually at the root level of the
+# filesystem.
+if [[ -x "/usr/bin/git" ]]; then
+    GIT="/usr/bin/git"
+else
+    GIT=$(
+        which -a git \
+            | awk '! ($0 ~ /.*\/home\/.*/) && ($0 ~ /.*\/(usr|bin|opt)\/.*/) {print}' \
+            | head -1
+    )
+fi
+
+# If git is not found, we can't do shit
+if [[ -z "${GIT}" ]]; then
+    echo "error: no git binary found"
+    exit 1
+fi
 
 function debug() {
     if [ -n "${DEBUG}" ]; then

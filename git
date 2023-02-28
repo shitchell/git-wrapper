@@ -9,7 +9,25 @@
 # - 1: git command failed
 # - 2: pre-process failed
 # - 3: post-process failed
-
+#
+# Config Settings:
+# - wrapper.showScriptName: if set to true, the pre-/post-process script output
+#   will be prefixed with the name of the script that is being run.
+# ~ wrapper.disablePreProcess: if set to true, the pre-process scripts will not
+#   be run.
+# ~ wrapper.disablePostProcess: if set to true, the post-process scripts will
+#   not be run.
+# ~ wrapper.scriptDir: the directory where the pre-/post-process scripts are
+#   located. If not set, the default is ~/.git.d/
+# ~ wrapper.disableScripts: a comma-separated list of scripts to disable.
+#   Scripts are specified by name without the .sh extension.
+# ~ wrapper.disableSubcommands: a comma-separated list of git subcommands to
+#   disable. If a subcommand is disabled, then the pre-/post-process scripts
+#   will not be run for that subcommand.
+#
+# If a pre-process script exits with a code of 2, then the script will exit
+# immediately with a code of 2. If a post-process script exits with a code of 3,
+#
 # Determine the path to the actual git executable.
 #
 # First: look specifically for /usr/bin/git.
@@ -19,6 +37,12 @@
 # ensure compatibility with lightly chrooted environments where the system level
 # /bin/ and /usr/bin/ directories are not actually at the root level of the
 # filesystem.
+#
+# TODO:
+# - add a USE_COLOR global var for scripts to use to determine if color should
+#   be used
+# - add a function for removing ansi codes from pre-/post-process output
+# - add a function for printing an error message
 if [[ -x "/usr/bin/git" ]]; then
     GIT="/usr/bin/git"
 else
@@ -93,6 +117,7 @@ while [[ ${#} -gt 0 ]]; do
             break
             ;;
     esac
+    debug "git args (${#@}):`printf " '%s'" "${GIT_ARGS[@]}"`"
 done
 
 # Function to run the specified command
@@ -104,13 +129,54 @@ GIT_EXIT_CODE=0
 PRE_EXIT_CODE=0
 POST_EXIT_CODE=0
 
+# Determine if we should show pre-/post-process script names
+SHOW_SCRIPT_NAME=$("${GIT}" "${GIT_ARGS[@]}" config --get wrapper.showScriptName)
+debug "show script name: ${SHOW_SCRIPT_NAME}"
+
+# Determine if we should use colors
+COLOR_CONFIG=$("${GIT}" "${GIT_ARGS[@]}" config ui.color)
+debug "color config: ${COLOR_CONFIG}"
+case "${COLOR_CONFIG}" in
+    always | true)
+        USE_COLOR="true"
+        ;;
+    never | false)
+        USE_COLOR="false"
+        ;;
+    auto)
+        if [[ -t 1 ]]; then
+            USE_COLOR="true"
+        else
+            USE_COLOR="false"
+        fi
+        ;;
+    *)
+        USE_COLOR="false"
+        ;;
+esac
+debug "use color: ${USE_COLOR}"
+
 # Do stuff before running the git command
 debug "begin pre-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/pre-process.d/"[0-9]*.sh; do
     debug "sourcing pre-process script: ${filepath}"
-    source "${filepath}"
-    PRE_EXIT_CODE=${?}
+    if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
+        filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
+        # Run the script and print output in the format:
+        #   <filename>: error: <stderr>
+        #   <filename>: <stdout>
+        {
+            source "${filepath}" 2>&3 \
+                | >&2 awk -v filename="${filename}" '{print filename ": error: " $0}'
+            PRE_EXIT_CODE=${PIPESTATUS[0]}
+        } 3>&1 1>&2 \
+            | awk -v filename="${filename}" '{print filename ": " $0}'
+    else
+        source "${filepath}"
+        PRE_EXIT_CODE=${?}
+    fi
+    
     if [[ ${PRE_EXIT_CODE} -ne 0 ]]; then
         echo "pre-process script '$(dirname ${filepath})' failed with exit code ${PRE_EXIT_CODE}" >&2
         exit ${PRE_EXIT_CODE}
@@ -134,7 +200,20 @@ debug "begin post-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
     debug "sourcing post-process script: ${filepath}"
-    source "${filepath}"
+    if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
+        filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
+        # Run the script and print output in the format:
+        #   <filename>: error: <stderr>
+        #   <filename>: <stdout>
+        {
+            source "${filepath}" 2>&3 \
+                | >&2 awk -v filename="${filename}" '{print filename ": error: " $0}'
+        } 3>&1 1>&2 \
+            | awk -v filename="${filename}" '{print filename ": " $0}'
+    else
+        source "${filepath}"
+    fi
+    
     POST_EXIT_CODE=${?}
     if [[ ${POST_EXIT_CODE} -ne 0 ]]; then
         echo "post-process script '$(dirname ${filepath})' failed with exit code ${POST_EXIT_CODE}" >&2

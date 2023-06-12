@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # A custom wrapper around git that adds some useful features for certain
 # subcommands. If a subcommand is not modified by this script, then it is

@@ -200,23 +200,23 @@ debug "begin post-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
     debug "sourcing post-process script: ${filepath}"
+    script_name=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
     if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
-        filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
         # Run the script and print output in the format:
         #   <filename>: error: <stderr>
         #   <filename>: <stdout>
         {
             source "${filepath}" 2>&3 \
-                | >&2 awk -v filename="${filename}" '{print filename ": error: " $0}'
+                | >&2 awk -v script_name="${script_name}" '{print script_name ": error: " $0}'
         } 3>&1 1>&2 \
-            | awk -v filename="${filename}" '{print filename ": " $0}'
+            | awk -v script_name="${script_name}" '{print script_name ": " $0}'
     else
         source "${filepath}"
     fi
     
     POST_EXIT_CODE=${?}
     if [[ ${POST_EXIT_CODE} -ne 0 ]]; then
-        echo "post-process script '$(dirname ${filepath})' failed with exit code ${POST_EXIT_CODE}" >&2
+        echo "post-process script '${script_name}' failed with exit code ${POST_EXIT_CODE}" >&2
         # exit ${POST_EXIT_CODE}
     fi
 done

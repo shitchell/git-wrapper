@@ -166,12 +166,18 @@ for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HO
         # Run the script and print output in the format:
         #   <filename>: error: <stderr>
         #   <filename>: <stdout>
-        {
-            source "${filepath}" 2>&3 \
-                | >&2 awk -v filename="${filename}" '{print filename ": error: " $0}'
-            PRE_EXIT_CODE=${PIPESTATUS[0]}
-        } 3>&1 1>&2 \
-            | awk -v filename="${filename}" '{print filename ": " $0}'
+        source "${filepath}" \
+            1> >(awk -v filename="${filename}" '{print filename ": " $0}') \
+            2> >(awk -v filename="${filename}" '{print filename ": error: " $0}')
+        PRE_EXIT_CODE=${?}
+        ## Leaving this temporarily until the above is vetted and shown to not
+        ## result in wacky orderings of stdout and stderr
+        # {
+        #     source "${filepath}" 2>&3 \
+        #         | >&2 awk -v filename="${filename}" '{print filename ": error: " $0}'
+        #     PRE_EXIT_CODE=${PIPESTATUS[0]}
+        # } 3>&1 1>&2 \
+        #     | awk -v filename="${filename}" '{print filename ": " $0}'
     else
         source "${filepath}"
         PRE_EXIT_CODE=${?}

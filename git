@@ -48,7 +48,11 @@ if [[ -x "/usr/bin/git" ]]; then
 else
     GIT=$(
         which -a git \
-            | awk '! ($0 ~ /.*\/home\/.*/) && ($0 ~ /.*\/(usr|bin|opt)\/.*/) {print}' \
+            | awk '
+                ! ($0 ~ /.*\/home\/.*/) && ($0 ~ /.*\/(usr|bin|opt)\/.*/) {
+                    print
+                }
+            ' \
             | head -1
     )
 fi
@@ -70,6 +74,24 @@ declare -ga GIT_ARGS
 declare -ga GIT_SUBCOMMAND_ARGS
 RUN_GIT_CMD=1  # whether or not to run the original git command after processing
 GIT_SUBCOMMAND=""
+
+# Determine if this is being called at an interactive prompt or in a script
+# GIT_INTERACTIVE=false
+# if [[ "${-}" =~ "i" ]]; then
+    # GIT_INTERACTIVE=true
+# fi
+# 
+# echo "## git"
+# if [[ -t 0 ]]; then
+	# echo "INTERACTIVE"
+# else
+	# echo "NO INTERACTIVE"
+# fi
+# echo "FUNCNAME:         ${FUNCNAME[@]}"
+# echo "BASH_SOURCE:      ${BASH_SOURCE[@]}"
+# echo "GIT_INTERACTIVE:  ${GIT_INTERACTIVE}"
+# echo "\$0:              ${0}"
+
 
 # Determine the git arguments, subcommand, and subcommand arguments
 while [[ ${#} -gt 0 ]]; do

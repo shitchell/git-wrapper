@@ -43,15 +43,38 @@
 #   be used
 # - add a function for removing ansi codes from pre-/post-process output
 # - add a function for printing an error message
-if [[ -x "/usr/bin/git" ]]; then
-    GIT="/usr/bin/git"
-else
-    GIT=$(
-        which -a git \
-            | awk '! ($0 ~ /.*\/home\/.*/) && ($0 ~ /.*\/(usr|bin|opt)\/.*/) {print}' \
-            | head -1
-    )
-fi
+
+## Version #####################################################################
+
+__GIT_WRAPPER_VERSION="0.1.0"
+__GIT_WRAPPER_PATH=$(realpath "${0}")
+
+
+## Helpful Functions ###########################################################
+
+# Debug function
+function debug() {
+    [[ "${DEBUG}" =~ ^"true"|"1"$ ]] && echo ${@} >&2
+}
+
+# Function to run the specified command
+function run-git-cmd() {
+    debug -e "running: \033[1m${GIT} \033[0;36m$([[ ${#GIT_ARGS[@]} -gt 0 ]] && printf "%q " "${GIT_ARGS[@]}")\033[32m${GIT_SUBCOMMAND}\033[34m$([[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")\033[0m"
+    "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
+}
+
+
+## Find `git` ##################################################################
+
+# Find the first git executable that isn't this script
+while read -r filepath; do
+    # Get the real path to the executable
+    filepath_real=$(realpath "${filepath}")
+    # Ensure the file isn't this script
+    [[ "${filepath_real}" == "${__GIT_WRAPPER_PATH}" ]] && continue
+    GIT="${filepath_real}"
+    break
+done <<< $(which -a git)
 
 # If git is not found, we can't do shit
 if [[ -z "${GIT}" ]]; then
@@ -59,11 +82,8 @@ if [[ -z "${GIT}" ]]; then
     exit 1
 fi
 
-function debug() {
-    if [ -n "${DEBUG}" ]; then
-        echo ${@} >&2
-    fi
-}
+
+## Parse Arguments #############################################################
 
 # Parse the git args, subcommand, and subcommand args
 declare -ga GIT_ARGS
@@ -120,14 +140,8 @@ while [[ ${#} -gt 0 ]]; do
     debug "git args (${#@}):`printf " '%s'" "${GIT_ARGS[@]}"`"
 done
 
-# Function to run the specified command
-function run-git-cmd() {
-    debug -e "running: \033[1m${GIT} \033[0;36m$([[ ${#GIT_ARGS[@]} -gt 0 ]] && printf "%q " "${GIT_ARGS[@]}")\033[32m${GIT_SUBCOMMAND}\033[34m$([[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")\033[0m"
-    "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
-}
-GIT_EXIT_CODE=0
-PRE_EXIT_CODE=0
-POST_EXIT_CODE=0
+
+## Var Setup ###################################################################
 
 # Determine if we should show pre-/post-process script names
 SHOW_SCRIPT_NAME=$("${GIT}" "${GIT_ARGS[@]}" config --get wrapper.showScriptName)
@@ -155,6 +169,13 @@ case "${COLOR_CONFIG}" in
         ;;
 esac
 debug "use color: ${USE_COLOR}"
+
+GIT_EXIT_CODE=0
+PRE_EXIT_CODE=0
+POST_EXIT_CODE=0
+
+
+## Pre-process #################################################################
 
 # Do stuff before running the git command
 debug "begin pre-processing"
@@ -190,6 +211,9 @@ for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HO
 done
 shopt -u nullglob
 
+
+## Run git #####################################################################
+
 # Run the git command if requested
 if [[ ${RUN_GIT_CMD} -eq 1 ]]; then
     run-git-cmd
@@ -200,6 +224,9 @@ if [[ ${RUN_GIT_CMD} -eq 1 ]]; then
         # exit ${GIT_EXIT_CODE}
     fi
 fi
+
+
+## Post-process ################################################################
 
 # Do other stuff after running the git command
 debug "begin post-processing"

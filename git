@@ -53,9 +53,17 @@ __GIT_WRAPPER_PATH=$(realpath "${0}")
 ## Helpful Functions ###########################################################
 
 # Debug function
-function debug() {
-    [[ "${DEBUG}" =~ ^"true"|"1"$ ]] && echo ${@} >&2
-}
+if ! declare -f debug &>/dev/null; then
+    function debug() {
+        if [[ "${DEBUG}" =~ ^"true"|"1"$ ]]; then
+            if [[ ${#} -gt 0 ]]; then
+                echo ${@} >&2
+            fi
+            return 0
+        fi
+        return 1
+    }
+fi
 
 # Function to run the specified command
 function run-git-cmd() {
@@ -81,6 +89,24 @@ if [[ -z "${GIT}" ]]; then
     echo "error: no git binary found"
     exit 1
 fi
+
+
+## Session Information #########################################################
+
+# Are we in a pipe?
+[[ -t 1 ]] && _IN_TERMINAL=true || _IN_TERMINAL=false
+debug "_IN_TERMINAL = ${_IN_TERMINAL}"
+
+# Are we in a script?
+## get the calling process arguments
+__PARENT_ARGS=$(ps -o args= "${PPID}")
+## if it contains a space, e.g. `-bash ./script.sh`, then we're in a script
+if [[ "${__PARENT_ARGS}" =~ " " ]]; then
+    _IN_SCRIPT=true
+else
+    _IN_SCRIPT=false
+fi
+debug "_IN_SCRIPT = ${_IN_SCRIPT}"
 
 
 ## Parse Arguments #############################################################
@@ -158,11 +184,7 @@ case "${COLOR_CONFIG}" in
         USE_COLOR="false"
         ;;
     auto)
-        if [[ -t 1 ]]; then
-            USE_COLOR="true"
-        else
-            USE_COLOR="false"
-        fi
+        ${_IN_TERMINAL} && USE_COLOR="true" || USE_COLOR="false"
         ;;
     *)
         USE_COLOR="false"

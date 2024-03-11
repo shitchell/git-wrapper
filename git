@@ -43,19 +43,46 @@
 #   be used
 # - add a function for removing ansi codes from pre-/post-process output
 # - add a function for printing an error message
-if [[ -x "/usr/bin/git" ]]; then
-    GIT="/usr/bin/git"
-else
-    GIT=$(
-        which -a git \
-            | awk '
-                ! ($0 ~ /.*\/home\/.*/) && ($0 ~ /.*\/(usr|bin|opt)\/.*/) {
-                    print
-                }
-            ' \
-            | head -1
-    )
+
+## Version #####################################################################
+
+__GIT_WRAPPER_VERSION="0.1.0"
+__GIT_WRAPPER_PATH=$(realpath "${0}")
+
+
+## Helpful Functions ###########################################################
+
+# Debug function
+if ! declare -f debug &>/dev/null; then
+    function debug() {
+        if [[ "${DEBUG}" =~ ^"true"|"1"$ ]]; then
+            if [[ ${#} -gt 0 ]]; then
+                echo ${@} >&2
+            fi
+            return 0
+        fi
+        return 1
+    }
 fi
+
+# Function to run the specified command
+function run-git-cmd() {
+    debug -e "running: \033[1m${GIT} \033[0;36m$([[ ${#GIT_ARGS[@]} -gt 0 ]] && printf "%q " "${GIT_ARGS[@]}")\033[32m${GIT_SUBCOMMAND}\033[34m$([[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")\033[0m"
+    "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
+}
+
+
+## Find `git` ##################################################################
+
+# Find the first git executable that isn't this script
+while read -r filepath; do
+    # Get the real path to the executable
+    filepath_real=$(realpath "${filepath}")
+    # Ensure the file isn't this script
+    [[ "${filepath_real}" == "${__GIT_WRAPPER_PATH}" ]] && continue
+    GIT="${filepath_real}"
+    break
+done <<< $(which -a git)
 
 # If git is not found, we can't do shit
 if [[ -z "${GIT}" ]]; then
@@ -63,11 +90,26 @@ if [[ -z "${GIT}" ]]; then
     exit 1
 fi
 
-function debug() {
-    if [ -n "${DEBUG}" ]; then
-        echo ${@} >&2
-    fi
-}
+
+## Session Information #########################################################
+
+# Are we in a pipe?
+[[ -t 1 ]] && _IN_TERMINAL=true || _IN_TERMINAL=false
+debug "_IN_TERMINAL = ${_IN_TERMINAL}"
+
+# Are we in a script?
+## get the calling process arguments
+__PARENT_ARGS=$(ps -o args= "${PPID}")
+## if it contains a space, e.g. `-bash ./script.sh`, then we're in a script
+if [[ "${__PARENT_ARGS}" =~ " " ]]; then
+    _IN_SCRIPT=true
+else
+    _IN_SCRIPT=false
+fi
+debug "_IN_SCRIPT = ${_IN_SCRIPT}"
+
+
+## Parse Arguments #############################################################
 
 # Parse the git args, subcommand, and subcommand args
 declare -ga GIT_ARGS
@@ -142,11 +184,7 @@ while [[ ${#} -gt 0 ]]; do
     debug "git args (${#@}):`printf " '%s'" "${GIT_ARGS[@]}"`"
 done
 
-# Function to run the specified command
-function run-git-cmd() {
-    debug -e "running: \033[1m${GIT} \033[0;36m$([[ ${#GIT_ARGS[@]} -gt 0 ]] && printf "%q " "${GIT_ARGS[@]}")\033[32m${GIT_SUBCOMMAND}\033[34m$([[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")\033[0m"
-    "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
-}
+
 
 # Function to get a configuration setting
 function git-option() {
@@ -158,9 +196,7 @@ function git-option() {
         || echo "${default}"
 }
 
-GIT_EXIT_CODE=0
-PRE_EXIT_CODE=0
-POST_EXIT_CODE=0
+## Var Setup ###################################################################
 
 # Determine if we should exit on pre-hook failure
 EXIT_ON_FAILURE=$(git-option bool wrapper.exitOnFailure false)
@@ -181,17 +217,20 @@ case "${COLOR_CONFIG}" in
         USE_COLOR="false"
         ;;
     auto)
-        if [[ -t 1 ]]; then
-            USE_COLOR="true"
-        else
-            USE_COLOR="false"
-        fi
+        ${_IN_TERMINAL} && USE_COLOR="true" || USE_COLOR="false"
         ;;
     *)
         USE_COLOR="false"
         ;;
 esac
 debug "use color: ${USE_COLOR}"
+
+GIT_EXIT_CODE=0
+PRE_EXIT_CODE=0
+POST_EXIT_CODE=0
+
+
+## Pre-process #################################################################
 
 # Do stuff before running the git command
 debug "begin pre-processing"
@@ -221,6 +260,9 @@ for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HO
 done
 shopt -u nullglob
 
+
+## Run git #####################################################################
+
 # Run the git command if requested
 if [[ "${RUN_GIT_CMD}" == "true" ]]; then
     run-git-cmd
@@ -233,6 +275,9 @@ if [[ "${RUN_GIT_CMD}" == "true" ]]; then
         fi
     fi
 fi
+
+
+## Post-process ################################################################
 
 # Do other stuff after running the git command
 debug "begin post-processing"

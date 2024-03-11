@@ -117,23 +117,6 @@ declare -ga GIT_SUBCOMMAND_ARGS
 RUN_GIT_CMD=true  # used by hooks to disable running the requested git command
 GIT_SUBCOMMAND=""
 
-# Determine if this is being called at an interactive prompt or in a script
-# GIT_INTERACTIVE=false
-# if [[ "${-}" =~ "i" ]]; then
-    # GIT_INTERACTIVE=true
-# fi
-# 
-# echo "## git"
-# if [[ -t 0 ]]; then
-	# echo "INTERACTIVE"
-# else
-	# echo "NO INTERACTIVE"
-# fi
-# echo "FUNCNAME:         ${FUNCNAME[@]}"
-# echo "BASH_SOURCE:      ${BASH_SOURCE[@]}"
-# echo "GIT_INTERACTIVE:  ${GIT_INTERACTIVE}"
-# echo "\$0:              ${0}"
-
 
 # Determine the git arguments, subcommand, and subcommand arguments
 while [[ ${#} -gt 0 ]]; do
@@ -183,8 +166,6 @@ while [[ ${#} -gt 0 ]]; do
     esac
     debug "git args (${#@}):`printf " '%s'" "${GIT_ARGS[@]}"`"
 done
-
-
 
 # Function to get a configuration setting
 function git-option() {

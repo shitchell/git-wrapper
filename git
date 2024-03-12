@@ -114,8 +114,26 @@ debug "_IN_SCRIPT = ${_IN_SCRIPT}"
 # Parse the git args, subcommand, and subcommand args
 declare -ga GIT_ARGS
 declare -ga GIT_SUBCOMMAND_ARGS
-RUN_GIT_CMD=1  # whether or not to run the original git command after processing
+RUN_GIT_CMD=true  # used by hooks to disable running the requested git command
 GIT_SUBCOMMAND=""
+
+# Determine if this is being called at an interactive prompt or in a script
+# GIT_INTERACTIVE=false
+# if [[ "${-}" =~ "i" ]]; then
+    # GIT_INTERACTIVE=true
+# fi
+# 
+# echo "## git"
+# if [[ -t 0 ]]; then
+	# echo "INTERACTIVE"
+# else
+	# echo "NO INTERACTIVE"
+# fi
+# echo "FUNCNAME:         ${FUNCNAME[@]}"
+# echo "BASH_SOURCE:      ${BASH_SOURCE[@]}"
+# echo "GIT_INTERACTIVE:  ${GIT_INTERACTIVE}"
+# echo "\$0:              ${0}"
+
 
 # Determine the git arguments, subcommand, and subcommand arguments
 while [[ ${#} -gt 0 ]]; do
@@ -167,10 +185,25 @@ while [[ ${#} -gt 0 ]]; do
 done
 
 
+
+# Function to get a configuration setting
+function git-option() {
+    local type="${1}"
+    local option="${2}"
+    local default="${3}"
+
+    "${GIT}" "${GIT_ARGS[@]}" config --get --type="${type}" "${option}" 2>/dev/null \
+        || echo "${default}"
+}
+
 ## Var Setup ###################################################################
 
+# Determine if we should exit on pre-hook failure
+EXIT_ON_FAILURE=$(git-option bool wrapper.exitOnFailure false)
+debug "exit on failure: ${EXIT_ON_FAILURE}"
+
 # Determine if we should show pre-/post-process script names
-SHOW_SCRIPT_NAME=$("${GIT}" "${GIT_ARGS[@]}" config --get wrapper.showScriptName)
+SHOW_SCRIPT_NAME=$(git-option bool wrapper.showScriptName false)
 debug "show script name: ${SHOW_SCRIPT_NAME}"
 
 # Determine if we should use colors
@@ -213,14 +246,6 @@ for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HO
             1> >(awk -v filename="${filename}" '{print filename ": " $0}') \
             2> >(awk -v filename="${filename}" '{print filename ": error: " $0}')
         PRE_EXIT_CODE=${?}
-        ## Leaving this temporarily until the above is vetted and shown to not
-        ## result in wacky orderings of stdout and stderr
-        # {
-        #     source "${filepath}" 2>&3 \
-        #         | >&2 awk -v filename="${filename}" '{print filename ": error: " $0}'
-        #     PRE_EXIT_CODE=${PIPESTATUS[0]}
-        # } 3>&1 1>&2 \
-        #     | awk -v filename="${filename}" '{print filename ": " $0}'
     else
         source "${filepath}"
         PRE_EXIT_CODE=${?}
@@ -228,7 +253,9 @@ for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HO
     
     if [[ ${PRE_EXIT_CODE} -ne 0 ]]; then
         echo "pre-process script '$(dirname ${filepath})' failed with exit code ${PRE_EXIT_CODE}" >&2
-        exit ${PRE_EXIT_CODE}
+        if ${EXIT_ON_FAILURE}; then
+            exit ${PRE_EXIT_CODE}
+        fi
     fi
 done
 shopt -u nullglob
@@ -237,13 +264,15 @@ shopt -u nullglob
 ## Run git #####################################################################
 
 # Run the git command if requested
-if [[ ${RUN_GIT_CMD} -eq 1 ]]; then
+if [[ "${RUN_GIT_CMD}" == "true" ]]; then
     run-git-cmd
     GIT_EXIT_CODE=${?}
     debug "git command exited with ${GIT_EXIT_CODE}"
     if [[ ${GIT_EXIT_CODE} -ne 0 ]]; then
         debug "git command failed"
-        # exit ${GIT_EXIT_CODE}
+        if ${EXIT_ON_FAILURE}; then
+            exit ${GIT_EXIT_CODE}
+        fi
     fi
 fi
 
@@ -272,7 +301,9 @@ for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${H
     POST_EXIT_CODE=${?}
     if [[ ${POST_EXIT_CODE} -ne 0 ]]; then
         echo "post-process script '${script_name}' failed with exit code ${POST_EXIT_CODE}" >&2
-        # exit ${POST_EXIT_CODE}
+        if ${EXIT_ON_FAILURE}; then
+            exit ${POST_EXIT_CODE}
+        fi
     fi
 done
 shopt -u nullglob

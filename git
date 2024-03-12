@@ -111,28 +111,13 @@ debug "_IN_SCRIPT = ${_IN_SCRIPT}"
 
 ## Parse Arguments #############################################################
 
+## Parse Arguments #############################################################
+
 # Parse the git args, subcommand, and subcommand args
 declare -ga GIT_ARGS
 declare -ga GIT_SUBCOMMAND_ARGS
 RUN_GIT_CMD=true  # used by hooks to disable running the requested git command
 GIT_SUBCOMMAND=""
-
-# Determine if this is being called at an interactive prompt or in a script
-# GIT_INTERACTIVE=false
-# if [[ "${-}" =~ "i" ]]; then
-    # GIT_INTERACTIVE=true
-# fi
-# 
-# echo "## git"
-# if [[ -t 0 ]]; then
-	# echo "INTERACTIVE"
-# else
-	# echo "NO INTERACTIVE"
-# fi
-# echo "FUNCNAME:         ${FUNCNAME[@]}"
-# echo "BASH_SOURCE:      ${BASH_SOURCE[@]}"
-# echo "GIT_INTERACTIVE:  ${GIT_INTERACTIVE}"
-# echo "\$0:              ${0}"
 
 
 # Determine the git arguments, subcommand, and subcommand arguments
@@ -184,7 +169,11 @@ while [[ ${#} -gt 0 ]]; do
     debug "git args (${#@}):`printf " '%s'" "${GIT_ARGS[@]}"`"
 done
 
-
+# Function to run the specified command
+function run-git-cmd() {
+    debug -e "running: \033[1m${GIT} \033[0;36m$([[ ${#GIT_ARGS[@]} -gt 0 ]] && printf "%q " "${GIT_ARGS[@]}")\033[32m${GIT_SUBCOMMAND}\033[34m$([[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")\033[0m"
+    "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
+}
 
 # Function to get a configuration setting
 function git-option() {
@@ -196,7 +185,9 @@ function git-option() {
         || echo "${default}"
 }
 
-## Var Setup ###################################################################
+GIT_EXIT_CODE=0
+PRE_EXIT_CODE=0
+POST_EXIT_CODE=0
 
 # Determine if we should exit on pre-hook failure
 EXIT_ON_FAILURE=$(git-option bool wrapper.exitOnFailure false)

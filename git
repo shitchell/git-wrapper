@@ -49,7 +49,6 @@
 __GIT_WRAPPER_VERSION="0.1.0"
 __GIT_WRAPPER_PATH=$(realpath "${0}")
 
-
 ## Helpful Functions ###########################################################
 
 # Debug function if not already defined
@@ -103,16 +102,16 @@ function git-option() {
                 type="${1#*=}"
                 ;;
             --type | --as)
-            	type="${2}"
-            	shift 1
-            	;;
+                type="${2}"
+                shift 1
+                ;;
             --default=* | --if-empty=*)
-            	default="${1#*=}"
-            	;;
+                default="${1#*=}"
+                ;;
             --default | --if-empty)
-            	default="${2}"
-            	shift 1
-            	;;
+                default="${2}"
+                shift 1
+                ;;
             --wrapper)
                 do_wrapper=true
                 ;;
@@ -121,30 +120,30 @@ function git-option() {
                 return 1
                 ;;
             *)
-            	if [[ -z "${option}" ]]; then
-            		option="${1}"
-            	elif [[ -z "${default}" ]]; then
-            		default="${1}"
-            	else
-            		echo "error: too many arguments: ${1}" >&2
-            		return 1
-            	fi
-            	;;
-		esac
-		shift 1
-	done
-	
-	if [[ -z "${option}" ]]; then
-		echo "error: no option specified" >&2
-		return 1
-	fi
-	
-	# Restrict the function to only "wrapper.*" options
-	if ${do_wrapper} && [[ ! "${option}" == "wrapper."* ]]; then
-	    option="wrapper.${option}"
-	    debug "added wrapper prefix: ${option}"
-	fi
-	
+                if [[ -z "${option}" ]]; then
+                    option="${1}"
+                elif [[ -z "${default}" ]]; then
+                    default="${1}"
+                else
+                    echo "error: too many arguments: ${1}" >&2
+                    return 1
+                fi
+                ;;
+        esac
+        shift 1
+    done
+
+    if [[ -z "${option}" ]]; then
+        echo "error: no option specified" >&2
+        return 1
+    fi
+
+    # Restrict the function to only "wrapper.*" options
+    if ${do_wrapper} && [[ ! "${option}" == "wrapper."* ]]; then
+        option="wrapper.${option}"
+        debug "added wrapper prefix: ${option}"
+    fi
+
     [[ -n "${type}" ]] && config_args+=(--type="${type}")
     config_args+=("${option}")
 
@@ -154,7 +153,6 @@ function git-option() {
         "${GIT}" "${GIT_ARGS[@]}" config --get "${config_args[@]}" 2>/dev/null
     )
     exit_code=${?}
-    
 
     if [[ ${exit_code} -ne 0 && -n "${default}" ]]; then
         echo "${default}"
@@ -169,7 +167,6 @@ function wrapper-option() {
     git-option --wrapper "${@}"
 }
 
-
 ## Find `git` ##################################################################
 
 # Find the first git executable that isn't this script
@@ -180,14 +177,13 @@ while read -r filepath; do
     [[ "${filepath_real}" == "${__GIT_WRAPPER_PATH}" ]] && continue
     GIT="${filepath_real}"
     break
-done <<< $(which -a git)
+done <<<$( which -a git)
 
 # If git is not found, we can't do shit
 if [[ -z "${GIT}" ]]; then
     echo "error: no git binary found"
     exit 1
 fi
-
 
 ## Session Information #########################################################
 
@@ -206,7 +202,6 @@ else
 fi
 debug "_IN_SCRIPT = ${_IN_SCRIPT}"
 
-
 ## Parse Arguments #############################################################
 
 # Parse the git args, subcommand, and subcommand args
@@ -215,15 +210,14 @@ declare -ga GIT_SUBCOMMAND_ARGS
 RUN_GIT_CMD=true  # used by hooks to disable running the requested git command
 GIT_SUBCOMMAND=""
 
-
 # Determine the git arguments, subcommand, and subcommand arguments
 while [[ ${#} -gt 0 ]]; do
     case ${1} in
         # Handle all options that take no arguments
         -h | --help | --version | --html-path | --man-path | --info-path | \
-        -p | --paginate | -P | --no-pager | --no-replace-objects | --bare | \
-        --literal-pathspecs | --glob-pathspecs | --noglob-pathspecs | \
-        --icase-pathspecs | --no-optional-locks | --no-renames | --exec-path*)
+            -p | --paginate | -P | --no-pager | --no-replace-objects | --bare | \
+            --literal-pathspecs | --glob-pathspecs | --noglob-pathspecs | \
+            --icase-pathspecs | --no-optional-locks | --no-renames | --exec-path*)
             debug "no arg: ${1}"
             GIT_ARGS+=("${1}")
             shift 1
@@ -231,7 +225,7 @@ while [[ ${#} -gt 0 ]]; do
 
         # Handle all options that optionally take an argument
         --git-dir* | --work-tree* | --namespace* | --super-prefix* | \
-        --config-env* | --list-cmds*)
+            --config-env* | --list-cmds*)
             debug "arg optional: ${1}"
             # Determine if the argument contains an equals sign
             if [[ "${1}" =~ = ]]; then
@@ -258,13 +252,12 @@ while [[ ${#} -gt 0 ]]; do
             shift 1
             GIT_SUBCOMMAND_ARGS=("${@}")
             debug "subcommand: ${GIT_SUBCOMMAND}"
-            debug "subcommand args (${#@}):`printf " '%s'" "${GIT_SUBCOMMAND_ARGS[@]}"`"
+            debug "subcommand args (${#@}):$(printf " '%s'" "${GIT_SUBCOMMAND_ARGS[@]}")"
             break
             ;;
     esac
-    debug "git args (${#@}):`printf " '%s'" "${GIT_ARGS[@]}"`"
+    debug "git args (${#@}):$(printf " '%s'" "${GIT_ARGS[@]}")"
 done
-
 
 ## Behavior ####################################################################
 
@@ -295,13 +288,11 @@ case "${COLOR_CONFIG}" in
 esac
 debug "use color: ${USE_COLOR}"
 
-
 ## Var Setup ###################################################################
 
 GIT_EXIT_CODE=0
 PRE_EXIT_CODE=0
 POST_EXIT_CODE=0
-
 
 ## Pre-process #################################################################
 
@@ -323,7 +314,7 @@ for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HO
         source "${filepath}"
         PRE_EXIT_CODE=${?}
     fi
-    
+
     if [[ ${PRE_EXIT_CODE} -ne 0 ]]; then
         echo "pre-process script '$(dirname ${filepath})' failed with exit code ${PRE_EXIT_CODE}" >&2
         if ${EXIT_ON_FAILURE}; then
@@ -332,7 +323,6 @@ for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HO
     fi
 done
 shopt -u nullglob
-
 
 ## Run git #####################################################################
 
@@ -349,7 +339,6 @@ if [[ "${RUN_GIT_CMD}" == "true" ]]; then
     fi
 fi
 
-
 ## Post-process ################################################################
 
 # Do other stuff after running the git command
@@ -364,13 +353,13 @@ for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${H
         #   <filename>: <stdout>
         {
             source "${filepath}" 2>&3 \
-                | >&2 awk -v script_name="${script_name}" '{print script_name ": error: " $0}'
+                | awk -v script_name="${script_name}" '{print script_name ": error: " $0}' >&2
         } 3>&1 1>&2 \
             | awk -v script_name="${script_name}" '{print script_name ": " $0}'
     else
         source "${filepath}"
     fi
-    
+
     POST_EXIT_CODE=${?}
     if [[ ${POST_EXIT_CODE} -ne 0 ]]; then
         echo "post-process script '${script_name}' failed with exit code ${POST_EXIT_CODE}" >&2

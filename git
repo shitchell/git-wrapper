@@ -89,12 +89,84 @@ function run-git-cmd() {
 
 # Function to get a configuration setting
 function git-option() {
-    local type="${1}"
-    local option="${2}"
-    local default="${3}"
+    local type
+    local option
+    local default
+    local do_wrapper=false
+    local config_args=()
+    local value
+    local exit_code=0
 
-    "${GIT}" "${GIT_ARGS[@]}" config --get --type="${type}" "${option}" 2>/dev/null \
-        || echo "${default}"
+    while [[ ${#} -gt 0 ]]; do
+        case ${1} in
+            --type=* | --as=*)
+                type="${1#*=}"
+                ;;
+            --type | --as)
+            	type="${2}"
+            	shift 1
+            	;;
+            --default=* | --if-empty=*)
+            	default="${1#*=}"
+            	;;
+            --default | --if-empty)
+            	default="${2}"
+            	shift 1
+            	;;
+            --wrapper)
+                do_wrapper=true
+                ;;
+            -*)
+                echo "error: unknown option: ${1}" >&2
+                return 1
+                ;;
+            *)
+            	if [[ -z "${option}" ]]; then
+            		option="${1}"
+            	elif [[ -z "${default}" ]]; then
+            		default="${1}"
+            	else
+            		echo "error: too many arguments: ${1}" >&2
+            		return 1
+            	fi
+            	;;
+		esac
+		shift 1
+	done
+	
+	if [[ -z "${option}" ]]; then
+		echo "error: no option specified" >&2
+		return 1
+	fi
+	
+	# Restrict the function to only "wrapper.*" options
+	if ${do_wrapper} && [[ ! "${option}" == "wrapper."* ]]; then
+	    option="wrapper.${option}"
+	    debug "added wrapper prefix: ${option}"
+	fi
+	
+    [[ -n "${type}" ]] && config_args+=(--type="${type}")
+    config_args+=("${option}")
+
+    debug "config_args: >>> ${config_args[@]} <<<"
+
+    value=$(
+        "${GIT}" "${GIT_ARGS[@]}" config --get "${config_args[@]}" 2>/dev/null
+    )
+    exit_code=${?}
+    
+
+    if [[ ${exit_code} -ne 0 && -n "${default}" ]]; then
+        echo "${default}"
+    elif [[ -n "${value}" ]]; then
+        echo "${value}"
+    fi
+    return ${exit_code}
+}
+
+# alias for `git-option --wrapper`
+function wrapper-option() {
+    git-option --wrapper "${@}"
 }
 
 
@@ -197,15 +269,15 @@ done
 ## Behavior ####################################################################
 
 # Determine if we should exit on pre-hook failure
-EXIT_ON_FAILURE=$(git-option bool wrapper.exitOnFailure false)
+EXIT_ON_FAILURE=$(wrapper-option --as=bool --default=false exitOnFailure)
 debug "exit on failure: ${EXIT_ON_FAILURE}"
 
 # Determine if we should show pre-/post-process script names
-SHOW_SCRIPT_NAME=$(git-option bool wrapper.showScriptName false)
+SHOW_SCRIPT_NAME=$(wrapper-option --as=bool --default=false showScriptName)
 debug "show script name: ${SHOW_SCRIPT_NAME}"
 
 # Determine if we should use colors
-COLOR_CONFIG=$("${GIT}" "${GIT_ARGS[@]}" config ui.color)
+COLOR_CONFIG=$(git-option --default=auto ui.color)
 debug "color config: ${COLOR_CONFIG}"
 case "${COLOR_CONFIG}" in
     always | true)

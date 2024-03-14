@@ -105,6 +105,9 @@ function git-option() {
                 type="${2}"
                 shift 1
                 ;;
+            --bool | --int | --bool-or-int | --path | --expiry-date | --color)
+                type="${1#--}"
+                ;;
             --default=* | --if-empty=*)
                 default="${1#*=}"
                 ;;

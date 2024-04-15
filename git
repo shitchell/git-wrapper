@@ -24,9 +24,9 @@
 # ~ wrapper.disableSubcommands: a comma-separated list of git subcommands to
 #   disable. If a subcommand is disabled, then the pre-/post-process scripts
 #   will not be run for that subcommand.
-#
-# If a pre-process script exits with a code of 2, then the script will exit
-# immediately with a code of 2. If a post-process script exits with a code of 3,
+# ~ wrapper.exitOnFailure: if set to true, the script will exit with the exit
+#   code of the pre-/post-process scripts if they fail. if a pre-process script
+#   fails, the git command will not be run.
 #
 # Determine the path to the actual git executable.
 #
@@ -54,9 +54,16 @@ __GIT_WRAPPER_PATH=$(realpath "${0}")
 # Debug function if not already defined
 if ! declare -f debug &>/dev/null; then
     function debug() {
-        if [[ "${DEBUG}" =~ ^"true"|"1"$ ]]; then
+        local prefix timestamp
+        if [[ "${DEBUG}" == "1" || "${DEBUG}" == "true" || -n "${DEBUG_LOG}" ]]; then
             if [[ ${#} -gt 0 ]]; then
-                echo ${@} >&2
+                timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+                prefix="\033[36m[${timestamp}]\033[0m "
+                prefix+="\033[35m$(basename "${BASH_SOURCE[-1]}")"
+                [[ "${FUNCNAME[1]}" != "main" ]] && prefix+="\033[1m:${FUNCNAME[1]}()\033[0m"
+                prefix+="\033[32m:${BASH_LINENO[0]}\033[0m -- "
+                printf "%s\n" "${@}" \
+                    | awk -v prefix="${prefix}" '{print prefix $0}' >> "${DEBUG_LOG:-/dev/stderr}"
             fi
             return 0
         fi
@@ -64,7 +71,7 @@ if ! declare -f debug &>/dev/null; then
     }
 fi
 
-# Function to run the specified command
+# Run the git command defined by GIT_ARGS, GIT_SUBCOMMAND, & GIT_SUBCOMMAND_ARGS
 function run-git-cmd() {
     if debug; then
         # Build the command string
@@ -86,7 +93,10 @@ function run-git-cmd() {
     "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
 }
 
-# Function to get a configuration setting
+# Nice and simple function for getting git config options
+# Usage: git-option [--type <datatype>] [--default <value>] [--wrapper]
+#                   [--bool|--int|--bool-or-int|--path|--expiry-date|--color]
+#                   <option> [<default>]
 function git-option() {
     local type
     local option
@@ -165,10 +175,11 @@ function git-option() {
     return ${exit_code}
 }
 
-# alias for `git-option --wrapper`
+# Alias for `git-option --wrapper`
 function wrapper-option() {
     git-option --wrapper "${@}"
 }
+
 
 ## Find `git` ##################################################################
 
@@ -180,13 +191,14 @@ while read -r filepath; do
     [[ "${filepath_real}" == "${__GIT_WRAPPER_PATH}" ]] && continue
     GIT="${filepath_real}"
     break
-done <<<$( which -a git)
+done <<< $(which -a git)
 
 # If git is not found, we can't do shit
 if [[ -z "${GIT}" ]]; then
     echo "error: no git binary found"
     exit 1
 fi
+
 
 ## Session Information #########################################################
 
@@ -204,6 +216,7 @@ else
     _IN_SCRIPT=false
 fi
 debug "_IN_SCRIPT = ${_IN_SCRIPT}"
+
 
 ## Parse Arguments #############################################################
 
@@ -262,6 +275,7 @@ while [[ ${#} -gt 0 ]]; do
     debug "git args (${#@}):$(printf " '%s'" "${GIT_ARGS[@]}")"
 done
 
+
 ## Behavior ####################################################################
 
 # Determine if we should exit on pre-hook failure
@@ -291,27 +305,29 @@ case "${COLOR_CONFIG}" in
 esac
 debug "use color: ${USE_COLOR}"
 
+
 ## Var Setup ###################################################################
 
 GIT_EXIT_CODE=0
 PRE_EXIT_CODE=0
 POST_EXIT_CODE=0
 
+
 ## Pre-process #################################################################
 
-# Do stuff before running the git command
 debug "begin pre-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/pre-process.d/"[0-9]*.sh; do
     debug "sourcing pre-process script: ${filepath}"
     if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
         filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
-        # Run the script and print output in the format:
-        #   <filename>: error: <stderr>
-        #   <filename>: <stdout>
+        name_words=( ${filename//_/ } )
+        pretty_name="(plugin) ${name_words[@]^}"
+        debug "pretty name: ${pretty_name}"
+        # Run the script, prefixing each line of output with the script name
         source "${filepath}" \
-            1> >(awk -v filename="${filename}" '{print filename ": " $0}') \
-            2> >(awk -v filename="${filename}" '{print filename ": error: " $0}')
+            1>(awk -v fn="${pretty_name}" '{print fn ": " $0; fflush()}') \
+            2>(awk -v fn="${pretty_name}" '{print fn ": err: " $0; fflush()}')
         PRE_EXIT_CODE=${?}
     else
         source "${filepath}"
@@ -319,13 +335,14 @@ for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HO
     fi
 
     if [[ ${PRE_EXIT_CODE} -ne 0 ]]; then
-        echo "pre-process script '$(dirname ${filepath})' failed with exit code ${PRE_EXIT_CODE}" >&2
+        echo "pre-process script '${filepath}' failed with exit code ${PRE_EXIT_CODE}" >&2
         if ${EXIT_ON_FAILURE}; then
             exit ${PRE_EXIT_CODE}
         fi
     fi
 done
 shopt -u nullglob
+
 
 ## Run git #####################################################################
 
@@ -342,6 +359,7 @@ if [[ "${RUN_GIT_CMD}" == "true" ]]; then
     fi
 fi
 
+
 ## Post-process ################################################################
 
 # Do other stuff after running the git command
@@ -349,21 +367,19 @@ debug "begin post-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
     debug "sourcing post-process script: ${filepath}"
-    script_name=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
     if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
-        # Run the script and print output in the format:
-        #   <filename>: error: <stderr>
-        #   <filename>: <stdout>
-        {
-            source "${filepath}" 2>&3 \
-                | awk -v script_name="${script_name}" '{print script_name ": error: " $0}' >&2
-        } 3>&1 1>&2 \
-            | awk -v script_name="${script_name}" '{print script_name ": " $0}'
+        filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
+        name_words=( ${filename//_/ } )
+        pretty_name="(plugin) ${name_words[@]^}"
+        debug "pretty name: ${pretty_name}"
+        # Run the script, prefixing each line of output with the script name
+        source "${filepath}" |& awk -v fn="${pretty_name}" '{print fn ": " $0}'
+        POST_EXIT_CODE=${PIPESTATUS[0]}
     else
         source "${filepath}"
+        POST_EXIT_CODE=${?}
     fi
 
-    POST_EXIT_CODE=${?}
     if [[ ${POST_EXIT_CODE} -ne 0 ]]; then
         echo "post-process script '${script_name}' failed with exit code ${POST_EXIT_CODE}" >&2
         if ${EXIT_ON_FAILURE}; then

@@ -88,7 +88,7 @@ function run-git-cmd() {
             command_str+=$(printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")
         fi
         command_str+=$'\033[0m'
-        debug -e "running: ${command_str}"
+        debug "running: ${command_str}"
     fi
     "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
 }

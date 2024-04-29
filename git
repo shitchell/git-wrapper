@@ -93,6 +93,135 @@ function run-git-cmd() {
     "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
 }
 
+# Run a command and label stderr/stdout with the script name and stream label
+# Usage: run-script <script>
+function run-plugin() {
+    # Default options
+    local plugin_path="" plugin_name name_words pretty_name
+    local do_show_plugin_name=false
+    local stdout_label="out" stdout_prefix
+    local stderr_label="err" stderr_prefix
+
+    # Parse the arguments
+    while [[ ${#} -gt 0 ]]; do
+        case ${1} in
+            --show-plugin-name=*)
+                if [[ "${1}" == *"="* ]]; then
+                    do_show_plugin_name="${1#*=}"
+                else
+                    do_show_plugin_name=true
+                    shift 1
+                fi
+                shift 1
+                ;;
+            --no-show-plugin-name)
+                do_show_plugin_name=false
+                shift 1
+                ;;
+            --stdout-label=*)
+                if [[ "${1}" == *"="* ]]; then
+                    stdout_label="${1#*=}"
+                else
+                    stdout_label="${2}"
+                    shift 1
+                fi
+                shift 1
+                ;;
+            --stderr-label=*)
+                if [[ "${1}" == *"="* ]]; then
+                    stderr_label="${1#*=}"
+                else
+                    stderr_label="${2}"
+                    shift 1
+                fi
+                shift 1
+                ;;
+            -*)
+                echo "error: unknown option: ${1}" >&2
+                return 1
+                ;;
+            *)
+                plugin_path="${1}"
+                shift 1
+                ;;
+        esac
+    done
+
+    # Ensure the plugin path is set
+    if [[ -z "${plugin_path}" ]]; then
+        echo "error: no plugin path specified" >&2
+        return 1
+    fi
+
+    # Get the plugin name if requested
+    if ${do_show_plugin_name}; then
+        plugin_name=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
+        name_words=( ${plugin_name//[-_]/ } )
+        pretty_name+="${C_PLUGIN_NAME}${name_words[@]^}${S_RESET}"
+
+        # Add the plugin name to each stream prefix
+        stdout_prefix+="${C_PLUGIN_LABEL}(plugin)${S_RESET} "
+        stdout_prefix+="${pretty_name}: "
+        stderr_prefix+="${C_PLUGIN_LABEL}${C_ERROR}(plugin)${S_RESET} "
+        stderr_prefix+="${pretty_name}: "
+    fi
+
+    # If a label was provided, add it to the prefix
+    [[ -n "${stdout_label}" ]] && stdout_prefix+="${stdout_label}: "
+    [[ -n "${stderr_label}" ]] && stderr_prefix+="${stderr_label}: "
+
+    # Run the script and print output in the format (depending on whether we're
+    # showing the plugin name and have stdout/stderr labels)
+    #   [(plugin) <filename>: ][<stderr_prefix>: ]<stderr>
+    #   [(plugin) <filename>: ][<stdout_prefix>:] <stdout>
+    local exit_code=0
+    # {
+    #     source "${plugin_path}" 2>&1 1>&3 3>&- \
+    #         | awk -v prefix="${stderr_prefix}" '{print prefix $0; fflush()}' # stderr
+    #     exit_code=${PIPESTATUS[0]}
+    #     debug "plugin '${plugin_path}' exited with ${exit_code}"
+    #     ## This is a bit of a hack. We echo "EXIT_CODE::<code>" to stderr to
+    #     ## be parsed by the awk command below. This is necessary because the
+    #     ## exit code of the script is lost when piping to awk (it's run in a
+    #     ## subshell). This way, we can capture the exit code and return it. The
+    #     ## main reason it's a bit hacky is because: if for whatever implausible
+    #     ## reason the script outputs "EXIT_CODE::<code>" to stderr, it won't
+    #     ## override the exit code, but that output would be lost.
+    #     echo "EXIT_CODE::${exit_code}" >&3
+    # } 3>&1 1>&2 \
+    #     | awk -v prefix="${stdout_prefix}" '
+    #         BEGIN {
+    #             exit_code = 0
+    #         }
+    #         {
+    #             if ($0 ~ /EXIT_CODE::[0-9]+/) {
+    #                 exit_code = $0
+    #                 # Extract the exit code from the line
+    #                 sub(/.*EXIT_CODE::/, "", exit_code)
+    #                 sub(/[^0-9].*/, "", exit_code)
+    #                 # Remove the "EXIT_CODE::<code>" string from the line
+    #                 sub(/EXIT_CODE::[0-9]+/, "", $0)
+    #                 # If the line is now empty, skip it
+    #                 if ($0 == "") {
+    #                     next
+    #                 }
+    #             }
+    #             print prefix $0
+    #             fflush()
+    #         }
+    #         END {
+    #             exit exit_code
+    #         }
+    #         ' # stdout
+    source "${plugin_path}" \
+        2> >(awk -v prefix="${stderr_prefix}" '{print prefix $0; fflush()}') \
+        1> >(awk -v prefix="${stdout_prefix}" '{print prefix $0; fflush()}')
+    exit_code=${?}
+
+    debug "run-plugin() exiting with ${exit_code}"
+    return ${exit_code}
+}
+
 # Nice and simple function for getting git config options
 # Usage: git-option [--type <datatype>] [--default <value>] [--wrapper]
 #                   [--bool|--int|--bool-or-int|--path|--expiry-date|--color]
@@ -341,6 +470,12 @@ if ${USE_COLOR}; then
     S_HIDDEN=$'\033[8m'  # not widely supported
     S_STRIKETHROUGH=$'\033[9m'  # not widely supported
     S_DEFAULT=$'\033[10m'
+
+    # Category colors
+    C_ERROR="${C_RED}"
+    C_WARNING="${C_YELLOW}"
+    C_PLUGIN_LABEL="${C_CYAN}${S_BOLD}"
+    C_PLUGIN_NAME="${C_CYAN}"
 else
     unset C_BLACK C_RED C_GREEN C_YELLOW C_BLUE C_MAGENTA C_CYAN C_WHITE C_RGB \
           C_DEFAULT_FG C_BLACK_BG C_RED_BG C_GREEN_BG C_YELLOW_BG C_BLUE_BG \
@@ -364,23 +499,44 @@ debug "begin pre-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/pre-process.d/"[0-9]*.sh; do
     debug "sourcing pre-process script: ${filepath}"
-    if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
-        filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
-        name_words=( ${filename//_/ } )
-        pretty_name="(plugin) ${name_words[@]^}"
-        debug "pretty name: ${pretty_name}"
-        # Run the script, prefixing each line of output with the script name
-        source "${filepath}" \
-            1>(awk -v fn="${pretty_name}" '{print fn ": " $0; fflush()}') \
-            2>(awk -v fn="${pretty_name}" '{print fn ": err: " $0; fflush()}')
+    filename="${filepath##*/}"
+
+    # if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
+    #     filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
+    #     pretty_name="${filename%.*}"
+    #     pretty_name="${pretty_name//[-_]/ }"
+    #     pretty_name="${C_PLUGIN_LABEL}(plugin)${S_RESET} ${C_PLUGIN_NAME}${name_words[@]^}${S_RESET}"
+    #     debug "pretty name: ${pretty_name}"
+    #     # Run the script and print output in the format:
+    #     #   <filename>: error: <stderr>
+    #     #   <filename>: <stdout>
+    #     debug "sourcing pre-process script: ${filepath}"
+    #     # redirect stderr/stdout to separate processes to differentiate them
+    #     # with separate awk commands
+    #     {
+    #         source "${filepath}" 2>&1 1>&3 3>&- \
+    #             | awk -v fn="${pretty_name}" '{print fn ": err: " $0; fflush()}' # stdout
+    #     } 3>&1 1>&2 \
+    #         | awk -v fn="${pretty_name}" '{print fn ": " $0; fflush()}' # stderr
+    #     # source "${filepath}" \
+    #     #     1>(awk -v fn="${pretty_name}" '{print fn ": " $0; fflush()}') \
+    #     #     2>(awk -v fn="${pretty_name}" '{print fn ": err: " $0; fflush()}')
+    #     # PRE_EXIT_CODE=${?}
+    #     PRE_EXIT_CODE=${PIPESTATUS[0]}
+    # else
+    #     source "${filepath}"
+    #     PRE_EXIT_CODE=${?}
+    # fi
+
+    run-plugin \
+        --show-plugin-name="${SHOW_SCRIPT_NAME}" \
+        --stdout-label="" \
+        --stderr-label="" \
+        "${filepath}"
         PRE_EXIT_CODE=${?}
-    else
-        source "${filepath}"
-        PRE_EXIT_CODE=${?}
-    fi
 
     if [[ ${PRE_EXIT_CODE} -ne 0 ]]; then
-        echo "pre-process script '${filepath}' failed with exit code ${PRE_EXIT_CODE}" >&2
+        echo "pre-process script '${filename}' failed with exit code ${PRE_EXIT_CODE}" >&2
         if ${EXIT_ON_FAILURE}; then
             exit ${PRE_EXIT_CODE}
         fi
@@ -412,21 +568,29 @@ debug "begin post-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
     debug "sourcing post-process script: ${filepath}"
-    if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
-        filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
-        name_words=( ${filename//_/ } )
-        pretty_name="(plugin) ${name_words[@]^}"
-        debug "pretty name: ${pretty_name}"
-        # Run the script, prefixing each line of output with the script name
-        source "${filepath}" |& awk -v fn="${pretty_name}" '{print fn ": " $0}'
-        POST_EXIT_CODE=${PIPESTATUS[0]}
-    else
-        source "${filepath}"
-        POST_EXIT_CODE=${?}
-    fi
+    filename="${filepath##*/}"
+    # if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
+    #     filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
+    #     name_words=( ${filename//_/ } )
+    #     pretty_name="${C_PLUGIN_LABEL}(plugin)${S_RESET} ${C_PLUGIN_NAME}${name_words[@]^}${S_RESET}"
+    #     debug "pretty name: ${pretty_name}"
+    #     # Run the script, prefixing each line of output with the script name
+    #     source "${filepath}" |& awk -v fn="${pretty_name}" '{print fn ": " $0}'
+    #     POST_EXIT_CODE=${PIPESTATUS[0]}
+    # else
+    #     source "${filepath}"
+    #     POST_EXIT_CODE=${?}
+    # fi
+
+    run-plugin \
+        --show-plugin-name="${SHOW_SCRIPT_NAME}" \
+        --stdout-label="" \
+        --stderr-label="" \
+        "${filepath}"
+    POST_EXIT_CODE=${?}
 
     if [[ ${POST_EXIT_CODE} -ne 0 ]]; then
-        echo "post-process script '${script_name}' failed with exit code ${POST_EXIT_CODE}" >&2
+        echo "post-process script '${filename}' failed with exit code ${POST_EXIT_CODE}" >&2
         if ${EXIT_ON_FAILURE}; then
             exit ${POST_EXIT_CODE}
         fi

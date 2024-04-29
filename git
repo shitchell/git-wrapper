@@ -94,7 +94,7 @@ function run-git-cmd() {
 }
 
 # Run a command and label stderr/stdout with the script name and stream label
-# Usage: run-script <script>
+# Usage: run-plugin [--(no-)show-plugin-name] [--stdout-label <str>] [--stderr-label <str>] <script>
 function run-plugin() {
     # Default options
     local plugin_path="" plugin_name name_words pretty_name
@@ -173,46 +173,8 @@ function run-plugin() {
     # Run the script and print output in the format (depending on whether we're
     # showing the plugin name and have stdout/stderr labels)
     #   [(plugin) <filename>: ][<stderr_prefix>: ]<stderr>
-    #   [(plugin) <filename>: ][<stdout_prefix>:] <stdout>
+    #   [(plugin) <filename>: ][<stdout_prefix>: ]<stdout>
     local exit_code=0
-    # {
-    #     source "${plugin_path}" 2>&1 1>&3 3>&- \
-    #         | awk -v prefix="${stderr_prefix}" '{print prefix $0; fflush()}' # stderr
-    #     exit_code=${PIPESTATUS[0]}
-    #     debug "plugin '${plugin_path}' exited with ${exit_code}"
-    #     ## This is a bit of a hack. We echo "EXIT_CODE::<code>" to stderr to
-    #     ## be parsed by the awk command below. This is necessary because the
-    #     ## exit code of the script is lost when piping to awk (it's run in a
-    #     ## subshell). This way, we can capture the exit code and return it. The
-    #     ## main reason it's a bit hacky is because: if for whatever implausible
-    #     ## reason the script outputs "EXIT_CODE::<code>" to stderr, it won't
-    #     ## override the exit code, but that output would be lost.
-    #     echo "EXIT_CODE::${exit_code}" >&3
-    # } 3>&1 1>&2 \
-    #     | awk -v prefix="${stdout_prefix}" '
-    #         BEGIN {
-    #             exit_code = 0
-    #         }
-    #         {
-    #             if ($0 ~ /EXIT_CODE::[0-9]+/) {
-    #                 exit_code = $0
-    #                 # Extract the exit code from the line
-    #                 sub(/.*EXIT_CODE::/, "", exit_code)
-    #                 sub(/[^0-9].*/, "", exit_code)
-    #                 # Remove the "EXIT_CODE::<code>" string from the line
-    #                 sub(/EXIT_CODE::[0-9]+/, "", $0)
-    #                 # If the line is now empty, skip it
-    #                 if ($0 == "") {
-    #                     next
-    #                 }
-    #             }
-    #             print prefix $0
-    #             fflush()
-    #         }
-    #         END {
-    #             exit exit_code
-    #         }
-    #         ' # stdout
     source "${plugin_path}" \
         2> >(awk -v prefix="${stderr_prefix}" '{print prefix $0; fflush()}') \
         1> >(awk -v prefix="${stdout_prefix}" '{print prefix $0; fflush()}')
@@ -481,7 +443,8 @@ else
           C_DEFAULT_FG C_BLACK_BG C_RED_BG C_GREEN_BG C_YELLOW_BG C_BLUE_BG \
           C_MAGENTA_BG C_CYAN_BG C_WHITE_BG C_RGB_BG C_DEFAULT_BG S_RESET \
           S_BOLD S_DIM S_ITALIC S_UNDERLINE S_BLINK S_BLINK_FAST S_REVERSE \
-          S_HIDDEN S_STRIKETHROUGH S_DEFAULT
+          S_HIDDEN S_STRIKETHROUGH S_DEFAULT \
+          C_ERROR C_WARNING C_PLUGIN_LABEL C_PLUGIN_NAME
 fi
 
 

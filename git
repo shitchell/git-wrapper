@@ -156,8 +156,15 @@ function run-plugin() {
     # Get the plugin name if requested
     if ${do_show_plugin_name}; then
         plugin_name=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
-        name_words=( ${plugin_name//[-_]/ } )
-        pretty_name+="${C_PLUGIN_NAME}${name_words[@]^}${S_RESET}"
+        # Replace underscores and hyphens with spaces
+        plugin_name="${plugin_name//[-_]/ }"
+        # If the plugin name starts with a number but has other text, remove the
+        # number
+        if [[ "${plugin_name}" =~ ^[0-9]+[" ".-_]?(.*[A-Za-z].*) ]]; then
+            plugin_name="${BASH_REMATCH[1]}"
+        fi
+        read -ra name_words <<< "${plugin_name}"
+        pretty_name+="${C_PLUGIN_NAME}${name_words[*]^}${S_RESET}"
 
         # Add the plugin name to each stream prefix
         stdout_prefix+="${C_PLUGIN_LABEL}(plugin)${S_RESET} "

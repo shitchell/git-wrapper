@@ -49,6 +49,36 @@
 __GIT_WRAPPER_VERSION="0.1.0"
 __GIT_WRAPPER_PATH=$(realpath "${0}")
 
+
+## Find `git` ##################################################################
+
+# Find the first git executable that isn't this script
+while read -r filepath; do
+    # Get the real path to the executable
+    filepath_real=$(realpath "${filepath}")
+    # Ensure the file isn't this script
+    [[ "${filepath_real}" == "${__GIT_WRAPPER_PATH}" ]] && continue
+    GIT="${filepath_real}"
+    break
+done <<< $(which -a git)
+
+# If git is not found, we can't do shit
+if [[ -z "${GIT}" ]]; then
+    echo "error: no git binary found"
+    exit 1
+fi
+
+## Passthrough #################################################################
+
+# If GIT_PASSTHROUGH is set to `true`, then simply pass the command through to
+# actual `git` and exit
+if [[ "${GIT_PASSTHROUGH}" == "true" ]]; then
+    debug-vars @
+    "${GIT}" "${@}"
+    exit ${?}
+fi
+
+
 ## Helpful Functions ###########################################################
 
 # Debug function if not already defined
@@ -90,7 +120,10 @@ function run-git-cmd() {
         command_str+=$'\033[0m'
         debug "running: ${command_str}"
     fi
-    "${GIT}" "${GIT_ARGS[@]}" "${GIT_SUBCOMMAND}" "${GIT_SUBCOMMAND_ARGS[@]}"
+    local git_cmd=("${GIT}" "${GIT_ARGS[@]}")
+    [[ -n "${GIT_SUBCOMMAND}" ]] && git_cmd+=("${GIT_SUBCOMMAND}")
+    [[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && git_cmd+=("${GIT_SUBCOMMAND_ARGS[@]}")
+    "${git_cmd[@]}"
 }
 
 # Run a command and label stderr/stdout with the script name and stream label
@@ -277,25 +310,6 @@ function git-option() {
 function wrapper-option() {
     git-option --wrapper "${@}"
 }
-
-
-## Find `git` ##################################################################
-
-# Find the first git executable that isn't this script
-while read -r filepath; do
-    # Get the real path to the executable
-    filepath_real=$(realpath "${filepath}")
-    # Ensure the file isn't this script
-    [[ "${filepath_real}" == "${__GIT_WRAPPER_PATH}" ]] && continue
-    GIT="${filepath_real}"
-    break
-done <<< $(which -a git)
-
-# If git is not found, we can't do shit
-if [[ -z "${GIT}" ]]; then
-    echo "error: no git binary found"
-    exit 1
-fi
 
 
 ## Session Information #########################################################

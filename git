@@ -73,7 +73,6 @@ fi
 # If GIT_PASSTHROUGH is set to `true`, then simply pass the command through to
 # actual `git` and exit
 if [[ "${GIT_PASSTHROUGH}" == "true" ]]; then
-    debug-vars @
     "${GIT}" "${@}"
     exit ${?}
 fi

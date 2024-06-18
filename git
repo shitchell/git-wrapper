@@ -474,42 +474,45 @@ fi
 GIT_EXIT_CODE=0
 PRE_EXIT_CODE=0
 POST_EXIT_CODE=0
+declare -i OUTPUT_MODIFIED=800  # exit code for extensions which modify output
+GIT_PID=0  # will be set as read only to the PID of the git command if it is run
+
+
+## Find extensions #############################################################
+EXTENSIONS_PRE=()
+EXTENSIONS_POST=()
+
+shopt -s nullglob  # don't fail if glob patterns don't match anything
+
+# Find pre-process extensions
+EXTENSIONS_PRE=(
+  "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[-_.]*sh
+  "${HOME}/.git.d/pre-process.d/"[0-9]*.sh
+)
+
+# Find post-process extensions
+EXTENSIONS_POST=(
+  "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh
+  "${HOME}/.git.d/post-process.d/"[0-9]*.sh
+)
+
+# Set the extensions as read only
+readonly EXTENSIONS_PRE
+readonly EXTENSIONS_POST
+
+shopt -u nullglob
+
+debug "pre-process extensions: ${EXTENSIONS_PRE[*]}"
+debug "post-process extensions: ${EXTENSIONS_POST[*]}"
 
 
 ## Pre-process #################################################################
 
 debug "begin pre-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
-for filepath in "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/pre-process.d/"[0-9]*.sh; do
+for filepath in "${EXTENSIONS_PRE[@]}"; do
     debug "sourcing pre-process script: ${filepath}"
     filename="${filepath##*/}"
-
-    # if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
-    #     filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
-    #     pretty_name="${filename%.*}"
-    #     pretty_name="${pretty_name//[-_]/ }"
-    #     pretty_name="${C_PLUGIN_LABEL}(plugin)${S_RESET} ${C_PLUGIN_NAME}${name_words[@]^}${S_RESET}"
-    #     debug "pretty name: ${pretty_name}"
-    #     # Run the script and print output in the format:
-    #     #   <filename>: error: <stderr>
-    #     #   <filename>: <stdout>
-    #     debug "sourcing pre-process script: ${filepath}"
-    #     # redirect stderr/stdout to separate processes to differentiate them
-    #     # with separate awk commands
-    #     {
-    #         source "${filepath}" 2>&1 1>&3 3>&- \
-    #             | awk -v fn="${pretty_name}" '{print fn ": err: " $0; fflush()}' # stdout
-    #     } 3>&1 1>&2 \
-    #         | awk -v fn="${pretty_name}" '{print fn ": " $0; fflush()}' # stderr
-    #     # source "${filepath}" \
-    #     #     1>(awk -v fn="${pretty_name}" '{print fn ": " $0; fflush()}') \
-    #     #     2>(awk -v fn="${pretty_name}" '{print fn ": err: " $0; fflush()}')
-    #     # PRE_EXIT_CODE=${?}
-    #     PRE_EXIT_CODE=${PIPESTATUS[0]}
-    # else
-    #     source "${filepath}"
-    #     PRE_EXIT_CODE=${?}
-    # fi
 
     run-plugin \
         --show-plugin-name="${SHOW_SCRIPT_NAME}" \
@@ -549,7 +552,8 @@ fi
 # Do other stuff after running the git command
 debug "begin post-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
-for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
+# for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
+for filepath in "${EXTENSIONS_POST[@]}"; do
     debug "sourcing post-process script: ${filepath}"
     filename="${filepath##*/}"
     # if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then

@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 #
-# A custom wrapper around git that adds some useful features for certain
-# subcommands. If a subcommand is not modified by this script, then it is
-# passed through to git.
+# A custom wrapper around git that runs pre/post execution extensions. Those
+# extensions which run before the git command have the ability to alter the
+# arguments that get passed or disable execution of the command. Extensions can
+# be setup to run only for specific git subcommands or globally for all
+# subcommands.
 #
 # Exit codes:
 # - 0: success
 # - 1: git command failed
 # - 2: pre-process failed
 # - 3: post-process failed
+#
+#
+# Environment variables:
+# - GIT_PASSTHROUGH: If set to "true", immediately pass the command through to
+#   `git` without running any extensions.
+# - DEBUG: If set to "true", show debug messages.
 #
 # Config Settings:
 # - wrapper.showScriptName: if set to true, the pre-/post-process script output
@@ -415,6 +423,11 @@ case "${COLOR_CONFIG}" in
         ;;
 esac
 debug "use color: ${USE_COLOR}"
+
+# Set behavior options as read only
+readonly EXIT_ON_FAILURE
+readonly SHOW_SCRIPT_NAME
+readonly USE_COLOR
 
 
 ## Colors ######################################################################

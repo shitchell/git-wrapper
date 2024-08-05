@@ -350,9 +350,9 @@ while [[ ${#} -gt 0 ]]; do
     case ${1} in
         # Handle all options that take no arguments
         -h | --help | --version | --html-path | --man-path | --info-path | \
-            -p | --paginate | -P | --no-pager | --no-replace-objects | --bare | \
-            --literal-pathspecs | --glob-pathspecs | --noglob-pathspecs | \
-            --icase-pathspecs | --no-optional-locks | --no-renames | --exec-path*)
+        -p | --paginate | -P | --no-pager | --no-replace-objects | --bare | \
+        --literal-pathspecs | --glob-pathspecs | --noglob-pathspecs | \
+        --icase-pathspecs | --no-optional-locks | --no-renames | --exec-path*)
             debug "no arg: ${1}"
             GIT_ARGS+=("${1}")
             shift 1
@@ -360,7 +360,7 @@ while [[ ${#} -gt 0 ]]; do
 
         # Handle all options that optionally take an argument
         --git-dir* | --work-tree* | --namespace* | --super-prefix* | \
-            --config-env* | --list-cmds*)
+        --config-env* | --list-cmds*)
             debug "arg optional: ${1}"
             # Determine if the argument contains an equals sign
             if [[ "${1}" =~ = ]]; then

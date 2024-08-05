@@ -19,6 +19,8 @@
 # - DEBUG: If set to "true", show debug messages.
 #
 # Config Settings:
+# ~ wrapper.enabled: if set to false, the wrapper will pass the command through
+#   to git without running any pre-/post-process scripts.
 # - wrapper.showScriptName: if set to true, the pre-/post-process script output
 #   will be prefixed with the name of the script that is being run.
 # ~ wrapper.disablePreProcess: if set to true, the pre-process scripts will not
@@ -51,6 +53,11 @@
 #   be used
 # - add a function for removing ansi codes from pre-/post-process output
 # - add a function for printing an error message
+# - maybe: on the first call to git-option, read the configs into a set of
+#   readonly variables that git-option will use thereafter to reduce the number
+#   of I/O operations... uncertain because I'm not sure how well we can custom
+#   handle ensuring all configs are correctly read (including any imported
+#   configs)
 
 ## Version #####################################################################
 
@@ -76,7 +83,7 @@ if [[ -z "${GIT}" ]]; then
     exit 1
 fi
 
-## Passthrough #################################################################
+## Passthrough 1 - Environment Variable ########################################
 
 # If GIT_PASSTHROUGH is set to `true`, then simply pass the command through to
 # actual `git` and exit
@@ -298,7 +305,9 @@ function git-option() {
     [[ -n "${type}" ]] && config_args+=(--type="${type}")
     config_args+=("${option}")
 
-    debug "config_args: >>> ${config_args[@]} <<<"
+    debug "config_args: >>> ${config_args[*]} <<<"
+    debug "GIT_ARGS:    >>> ${GIT_ARGS[*]} <<<"
+    debug "> ${GIT} ${GIT_ARGS[*]} config --get ${config_args[*]}"
 
     value=$(
         "${GIT}" "${GIT_ARGS[@]}" config --get "${config_args[@]}" 2>/dev/null
@@ -391,8 +400,21 @@ while [[ ${#} -gt 0 ]]; do
             break
             ;;
     esac
-    debug "git args (${#@}):$(printf " '%s'" "${GIT_ARGS[@]}")"
+    debug "git args (${#GIT_ARGS[@]}):$(printf " '%s'" "${GIT_ARGS[@]}")"
 done
+
+
+## Passthrough 2 - Config ######################################################
+# We have to check this here so that GIT_ARGS is set and we can correctly check
+# if the user ran `git -c wrapper.enabled=false ...`
+
+if $(wrapper-option --as=bool --default=true enabled); then
+    debug "wrapper is enabled"
+else
+    debug "wrapper is disabled"
+    run-git-cmd
+    exit ${?}
+fi
 
 
 ## Behavior ####################################################################

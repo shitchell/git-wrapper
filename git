@@ -146,6 +146,7 @@ function run-plugin() {
     # Default options
     local plugin_path="" plugin_name name_words pretty_name
     local do_show_plugin_name=false
+    local do_warnings=false
     local stdout_label="out" stdout_prefix
     local stderr_label="err" stderr_prefix
 
@@ -183,6 +184,12 @@ function run-plugin() {
                 fi
                 shift 1
                 ;;
+            --warnings)
+                do_warnings=true
+                ;;
+            --no-warnings)
+                do_warnings=false
+                ;;
             -*)
                 echo "error: unknown option: ${1}" >&2
                 return 1
@@ -198,6 +205,18 @@ function run-plugin() {
     if [[ -z "${plugin_path}" ]]; then
         echo "error: no plugin path specified" >&2
         return 1
+    fi
+
+    # Ensure the plugin exists and is executable
+    if [[ ! -f "${plugin_path}" ]]; then
+        ${do_warnings} \
+            && echo "warning: plugin not found: ${plugin_path}" >&2
+        return
+    fi
+    if [[ ! -x "${plugin_path}" ]]; then
+        ${do_warnings} \
+            && echo "warning: plugin not executable: ${plugin_path}" >&2
+        return
     fi
 
     # Get the plugin name if requested
@@ -514,22 +533,33 @@ GIT_PID=0  # will be set as read only to the PID of the git command if it is run
 
 
 ## Find extensions #############################################################
+_extensions=()
 EXTENSIONS_PRE=()
 EXTENSIONS_POST=()
 
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 
 # Find pre-process extensions
-EXTENSIONS_PRE=(
-  "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}"[-_.]*sh
+_extensions=(
+  "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}.sh"
+  "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
   "${HOME}/.git.d/pre-process.d/"[0-9]*.sh
 )
+for filepath in "${_extensions[@]}"; do
+    [[ -f "${filepath}" && -x "${filepath}" ]] \
+        && EXTENSIONS_PRE+=("${filepath}")
+done
 
 # Find post-process extensions
-EXTENSIONS_POST=(
-  "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh
+_extensions=(
+  "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}.sh"
+  "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
   "${HOME}/.git.d/post-process.d/"[0-9]*.sh
 )
+for filepath in "${_extensions[@]}"; do
+    [[ -f "${filepath}" && -x "${filepath}" ]] \
+        && EXTENSIONS_POST+=("${filepath}")
+done
 
 # Set the extensions as read only
 readonly EXTENSIONS_PRE

@@ -621,18 +621,6 @@ shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${EXTENSIONS_POST[@]}"; do
     debug "sourcing post-process script: ${filepath}"
     filename="${filepath##*/}"
-    # if [[ "${SHOW_SCRIPT_NAME}" == "true" ]]; then
-    #     filename=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
-    #     name_words=( ${filename//_/ } )
-    #     pretty_name="${C_PLUGIN_LABEL}(plugin)${S_RESET} ${C_PLUGIN_NAME}${name_words[@]^}${S_RESET}"
-    #     debug "pretty name: ${pretty_name}"
-    #     # Run the script, prefixing each line of output with the script name
-    #     source "${filepath}" |& awk -v fn="${pretty_name}" '{print fn ": " $0}'
-    #     POST_EXIT_CODE=${PIPESTATUS[0]}
-    # else
-    #     source "${filepath}"
-    #     POST_EXIT_CODE=${?}
-    # fi
 
     run-plugin \
         --show-plugin-name="${SHOW_SCRIPT_NAME}" \

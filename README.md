@@ -13,7 +13,7 @@ A custom git wrapper that runs pre/post-process plugins around git commands. Plu
 
 2. Add the wrapper to your PATH (before the system git):
    ```bash
-   export PATH="/path/to/git-wrapper:$PATH"
+   export PATH="/path/to/git-wrapper/bin:$PATH"
    ```
 
 3. Create the plugin directories:

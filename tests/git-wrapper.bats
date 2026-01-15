@@ -2,8 +2,8 @@
 
 # Setup
 setup() {
-    TEST_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")" && pwd)"
-    WRAPPER_PATH="$(dirname "$TEST_DIR")/bin/git"
+    TEST_DIR="${BATS_TEST_FILENAME%/*}"
+    WRAPPER_PATH="${TEST_DIR%/*}/bin/git"
     FIXTURES_DIR="$TEST_DIR/fixtures"
 
     # Create a temp directory for test repos

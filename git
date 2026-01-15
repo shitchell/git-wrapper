@@ -102,16 +102,17 @@ fi
 # Debug function if not already defined
 if ! declare -f debug &>/dev/null; then
     function debug() {
-        local prefix timestamp
-        if [[ "${DEBUG}" == "1" || "${DEBUG}" == "true" || -n "${DEBUG_LOG}" ]]; then
+        local -- __prefix __timestamp
+
+        if [[ ${DEBUG} == "1" || ${DEBUG} == "true" || -n ${DEBUG_LOG} ]]; then
             if [[ ${#} -gt 0 ]]; then
-                timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
-                prefix="\033[36m[${timestamp}]\033[0m "
-                prefix+="\033[35m$(basename "${BASH_SOURCE[-1]}")"
-                [[ "${FUNCNAME[1]}" != "main" ]] && prefix+="\033[1m:${FUNCNAME[1]}()\033[0m"
-                prefix+="\033[32m:${BASH_LINENO[0]}\033[0m -- "
+                __timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+                __prefix="\033[36m[${__timestamp}]\033[0m "
+                __prefix+="\033[35m$(basename "${BASH_SOURCE[-1]}")"
+                [[ ${FUNCNAME[1]} != "main" ]] && __prefix+="\033[1m:${FUNCNAME[1]}()\033[0m"
+                __prefix+="\033[32m:${BASH_LINENO[0]}\033[0m -- "
                 printf "%s\n" "${@}" \
-                    | awk -v prefix="${prefix}" '{print prefix $0}' >> "${DEBUG_LOG:-/dev/stderr}"
+                    | awk -v prefix="${__prefix}" '{print prefix $0}' >> "${DEBUG_LOG:-/dev/stderr}"
             fi
             return 0
         fi
@@ -121,76 +122,79 @@ fi
 
 # Run the git command defined by GIT_ARGS, GIT_SUBCOMMAND, & GIT_SUBCOMMAND_ARGS
 function run-git-cmd() {
+    local -- __command_str
+    local -a __git_cmd
+
     if debug; then
         # Build the command string
-        local command_str
-        command_str+=$'\033[1m'"${GIT}"$'\033[0m '
+        __command_str+=$'\033[1m'${GIT}$'\033[0m '
         if [[ ${#GIT_ARGS[@]} -gt 0 ]]; then
-            command_str+=$'\033[0;36m'
-            command_str+=$(printf "%q " "${GIT_ARGS[@]}")
-            command_str+=$'\033[0m'
+            __command_str+=$'\033[0;36m'
+            __command_str+=$(printf "%q " "${GIT_ARGS[@]}")
+            __command_str+=$'\033[0m'
         fi
-        command_str+=$'\033[32m'"${GIT_SUBCOMMAND}"$'\033[0m'
+        __command_str+=$'\033[32m'${GIT_SUBCOMMAND}$'\033[0m'
         if [[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]]; then
-            command_str+=$'\033[34m'
-            command_str+=$(printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")
+            __command_str+=$'\033[34m'
+            __command_str+=$(printf " %q" "${GIT_SUBCOMMAND_ARGS[@]}")
         fi
-        command_str+=$'\033[0m'
-        debug "running: ${command_str}"
+        __command_str+=$'\033[0m'
+        debug "running: ${__command_str}"
     fi
-    local git_cmd=("${GIT}" "${GIT_ARGS[@]}")
-    [[ -n "${GIT_SUBCOMMAND}" ]] && git_cmd+=("${GIT_SUBCOMMAND}")
-    [[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && git_cmd+=("${GIT_SUBCOMMAND_ARGS[@]}")
-    "${git_cmd[@]}"
+    __git_cmd=("${GIT}" "${GIT_ARGS[@]}")
+    [[ -n ${GIT_SUBCOMMAND} ]] && __git_cmd+=("${GIT_SUBCOMMAND}")
+    [[ ${#GIT_SUBCOMMAND_ARGS[@]} -gt 0 ]] && __git_cmd+=("${GIT_SUBCOMMAND_ARGS[@]}")
+    "${__git_cmd[@]}"
 }
 
 # Run a command and label stderr/stdout with the script name and stream label
 # Usage: run-plugin [--(no-)show-plugin-name] [--stdout-label <str>] [--stderr-label <str>] <script>
 function run-plugin() {
-    # Default options
-    local plugin_path="" plugin_name name_words pretty_name
-    local do_show_plugin_name=false
-    local do_warnings=false
-    local stdout_label="out" stdout_prefix
-    local stderr_label="err" stderr_prefix
+    local -- __plugin_path __plugin_name __pretty_name
+    local -- __stdout_label=out __stdout_prefix
+    local -- __stderr_label=err __stderr_prefix
+    local -- __do_show_plugin_name=false
+    local -- __do_warnings=false
+    local -a __name_words
+    local -i __exit_code=0
 
     # Parse the arguments
     while [[ ${#} -gt 0 ]]; do
         case ${1} in
             --show-plugin-name=*)
-                do_show_plugin_name="${1#*=}"
+                __do_show_plugin_name=${1#*=}
                 shift 1
                 ;;
             --show-plugin-name)
-                do_show_plugin_name=true
+                __do_show_plugin_name=true
                 shift 1
                 ;;
             --no-show-plugin-name)
-                do_show_plugin_name=false
+                __do_show_plugin_name=false
                 shift 1
                 ;;
             --stdout-label=*)
-                stdout_label="${1#*=}"
+                __stdout_label=${1#*=}
                 shift 1
                 ;;
             --stdout-label)
-                stdout_label="${2}"
+                __stdout_label=$2
                 shift 2
                 ;;
             --stderr-label=*)
-                stderr_label="${1#*=}"
+                __stderr_label=${1#*=}
                 shift 1
                 ;;
             --stderr-label)
-                stderr_label="${2}"
+                __stderr_label=$2
                 shift 2
                 ;;
             --warnings)
-                do_warnings=true
+                __do_warnings=true
                 shift 1
                 ;;
             --no-warnings)
-                do_warnings=false
+                __do_warnings=false
                 shift 1
                 ;;
             -*)
@@ -198,66 +202,65 @@ function run-plugin() {
                 return 1
                 ;;
             *)
-                plugin_path="${1}"
+                __plugin_path=$1
                 shift 1
                 ;;
         esac
     done
 
     # Ensure the plugin path is set
-    if [[ -z "${plugin_path}" ]]; then
+    if [[ -z ${__plugin_path} ]]; then
         echo "error: no plugin path specified" >&2
         return 1
     fi
 
     # Ensure the plugin exists and is executable
-    if [[ ! -f "${plugin_path}" ]]; then
-        ${do_warnings} \
-            && echo "warning: plugin not found: ${plugin_path}" >&2
+    if [[ ! -f ${__plugin_path} ]]; then
+        ${__do_warnings} \
+            && echo "warning: plugin not found: ${__plugin_path}" >&2
         return
     fi
-    if [[ ! -x "${plugin_path}" ]]; then
-        ${do_warnings} \
-            && echo "warning: plugin not executable: ${plugin_path}" >&2
+    if [[ ! -x ${__plugin_path} ]]; then
+        ${__do_warnings} \
+            && echo "warning: plugin not executable: ${__plugin_path}" >&2
         return
     fi
 
     # Get the plugin name if requested
-    if ${do_show_plugin_name}; then
-        plugin_name=$(basename "${plugin_path}" | sed -E 's/\.[^.]+$//')
+    if ${__do_show_plugin_name}; then
+        __plugin_name=$(basename "${__plugin_path}" | sed -E 's/\.[^.]+$//')
         # Replace underscores and hyphens with spaces
-        plugin_name="${plugin_name//[-_]/ }"
+        __plugin_name=${__plugin_name//[-_]/ }
         # If the plugin name starts with a number but has other text, remove the
         # number
-        if [[ "${plugin_name}" =~ ^[0-9]+[" ".-_]?(.*[A-Za-z].*) ]]; then
-            plugin_name="${BASH_REMATCH[1]}"
+        if [[ ${__plugin_name} =~ ^[0-9]+[" ".-_]?(.*[A-Za-z].*) ]]; then
+            __plugin_name=${BASH_REMATCH[1]}
         fi
-        read -ra name_words <<< "${plugin_name}"
-        pretty_name+="${C_PLUGIN_NAME}${name_words[*]^}${S_RESET}"
+        read -ra __name_words <<< "${__plugin_name}"
+        __pretty_name+=${C_PLUGIN_NAME}${__name_words[*]^}${S_RESET}
 
         # Add the plugin name to each stream prefix
-        stdout_prefix+="${C_PLUGIN_LABEL}(plugin)${S_RESET} "
-        stdout_prefix+="${pretty_name}: "
-        stderr_prefix+="${C_PLUGIN_LABEL}${C_ERROR}(plugin)${S_RESET} "
-        stderr_prefix+="${pretty_name}: "
+        __stdout_prefix+="${C_PLUGIN_LABEL}(plugin)${S_RESET} "
+        __stdout_prefix+="${__pretty_name}: "
+        __stderr_prefix+="${C_PLUGIN_LABEL}${C_ERROR}(plugin)${S_RESET} "
+        __stderr_prefix+="${__pretty_name}: "
     fi
 
     # If a label was provided, add it to the prefix
-    [[ -n "${stdout_label}" ]] && stdout_prefix+="${stdout_label}: "
-    [[ -n "${stderr_label}" ]] && stderr_prefix+="${stderr_label}: "
+    [[ -n ${__stdout_label} ]] && __stdout_prefix+="${__stdout_label}: "
+    [[ -n ${__stderr_label} ]] && __stderr_prefix+="${__stderr_label}: "
 
     # Run the script and print output in the format (depending on whether we're
     # showing the plugin name and have stdout/stderr labels)
     #   [(plugin) <filename>: ][<stderr_prefix>: ]<stderr>
     #   [(plugin) <filename>: ][<stdout_prefix>: ]<stdout>
-    local exit_code=0
-    source "${plugin_path}" \
-        2> >(awk -v prefix="${stderr_prefix}" '{print prefix $0; fflush()}') \
-        1> >(awk -v prefix="${stdout_prefix}" '{print prefix $0; fflush()}')
-    exit_code=${?}
+    source "${__plugin_path}" \
+        2> >(awk -v prefix="${__stderr_prefix}" '{print prefix $0; fflush()}') \
+        1> >(awk -v prefix="${__stdout_prefix}" '{print prefix $0; fflush()}')
+    __exit_code=$?
 
-    debug "run-plugin() exiting with ${exit_code}"
-    return ${exit_code}
+    debug "run-plugin() exiting with ${__exit_code}"
+    return ${__exit_code}
 }
 
 # Nice and simple function for getting git config options
@@ -265,45 +268,42 @@ function run-plugin() {
 #                   [--bool|--int|--bool-or-int|--path|--expiry-date|--color]
 #                   <option> [<default>]
 function git-option() {
-    local type
-    local option
-    local default
-    local do_wrapper=false
-    local config_args=()
-    local value
-    local exit_code=0
+    local -- __type __option __default __value
+    local -- __do_wrapper=false
+    local -a __config_args
+    local -i __exit_code=0
 
     while [[ ${#} -gt 0 ]]; do
         case ${1} in
             --type=* | --as=*)
-                type="${1#*=}"
+                __type=${1#*=}
                 ;;
             --type | --as)
-                type="${2}"
+                __type=$2
                 shift 1
                 ;;
             --bool | --int | --bool-or-int | --path | --expiry-date | --color)
-                type="${1#--}"
+                __type=${1#--}
                 ;;
             --default=* | --if-empty=*)
-                default="${1#*=}"
+                __default=${1#*=}
                 ;;
             --default | --if-empty)
-                default="${2}"
+                __default=$2
                 shift 1
                 ;;
             --wrapper)
-                do_wrapper=true
+                __do_wrapper=true
                 ;;
             -*)
                 echo "error: unknown option: ${1}" >&2
                 return 1
                 ;;
             *)
-                if [[ -z "${option}" ]]; then
-                    option="${1}"
-                elif [[ -z "${default}" ]]; then
-                    default="${1}"
+                if [[ -z ${__option} ]]; then
+                    __option=$1
+                elif [[ -z ${__default} ]]; then
+                    __default=$1
                 else
                     echo "error: too many arguments: ${1}" >&2
                     return 1
@@ -313,35 +313,35 @@ function git-option() {
         shift 1
     done
 
-    if [[ -z "${option}" ]]; then
+    if [[ -z ${__option} ]]; then
         echo "error: no option specified" >&2
         return 1
     fi
 
     # Restrict the function to only "wrapper.*" options
-    if ${do_wrapper} && [[ ! "${option}" == "wrapper."* ]]; then
-        option="wrapper.${option}"
-        debug "added wrapper prefix: ${option}"
+    if ${__do_wrapper} && [[ ${__option} != "wrapper."* ]]; then
+        __option=wrapper.${__option}
+        debug "added wrapper prefix: ${__option}"
     fi
 
-    [[ -n "${type}" ]] && config_args+=(--type="${type}")
-    config_args+=("${option}")
+    [[ -n ${__type} ]] && __config_args+=(--type="${__type}")
+    __config_args+=("${__option}")
 
-    debug "config_args: >>> ${config_args[*]} <<<"
+    debug "config_args: >>> ${__config_args[*]} <<<"
     debug "GIT_ARGS:    >>> ${GIT_ARGS[*]} <<<"
-    debug "> ${GIT} ${GIT_ARGS[*]} config --get ${config_args[*]}"
+    debug "> ${GIT} ${GIT_ARGS[*]} config --get ${__config_args[*]}"
 
-    value=$(
-        "${GIT}" "${GIT_ARGS[@]}" config --get "${config_args[@]}" 2>/dev/null
+    __value=$(
+        "${GIT}" "${GIT_ARGS[@]}" config --get "${__config_args[@]}" 2>/dev/null
     )
-    exit_code=${?}
+    __exit_code=$?
 
-    if [[ ${exit_code} -ne 0 && -n "${default}" ]]; then
-        echo "${default}"
-    elif [[ -n "${value}" ]]; then
-        echo "${value}"
+    if [[ ${__exit_code} -ne 0 && -n ${__default} ]]; then
+        echo "${__default}"
+    elif [[ -n ${__value} ]]; then
+        echo "${__value}"
     fi
-    return ${exit_code}
+    return ${__exit_code}
 }
 
 # Alias for `git-option --wrapper`

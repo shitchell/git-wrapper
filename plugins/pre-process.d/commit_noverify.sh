@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 #
-# Block --no-verify when wrapper.disableNoVerify is true
+# Block --no-verify when strict mode is enabled.
 #
 # Prevents bypassing pre-commit hooks. Useful for enforcing code quality
 # checks in repos where hooks should not be skipped.
 #
+# Config:
+#   wrapper.plugin.commit_noverify.enabled (bool): default true
+#   wrapper.plugin.commit_noverify.strict (bool): default false
+#
 
-__disable_noverify=$(wrapper-option --bool --default=false disableNoVerify)
+__strict=$(plugin-option --bool --default=false strict)
 
-if ! ${__disable_noverify}; then
+if ! ${__strict}; then
     return 0
 fi
 

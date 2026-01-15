@@ -2,9 +2,10 @@
 #
 # Organize cloned directories based on the host, organization/user, and project.
 #
-# Git Config:
-# - git.gitDirectory (string): The base directory to clone repositories into
-#  (default: "${HOME}/code/git")
+# Config:
+#   wrapper.plugin.clone_organize_dirs.enabled (bool): default true
+#   wrapper.plugin.clone_organize_dirs.force (bool): force organize even in scripts
+#   wrapper.plugin.clone_organize_dirs.basedir (string): base directory (default: ~/code/git)
 #
 # This plugin will do nothing if:
 # - a target directory is specified, then this script will do nothing.
@@ -24,10 +25,9 @@
 
 debug "_IN_SCRIPT = ${_IN_SCRIPT}"
 if [[ "${_IN_SCRIPT}" == "true" ]]; then
-    # Check if the `wrapper.forceOrganize` option is set to true
-    __force_organize=$(wrapper-option --bool --default=false forceOrganize)
+    __force_organize=$(plugin-option --bool --default=false force)
     if ! ${__force_organize}; then
-        echo "skipping: session is not interactive and 'wrapper.forceOrganize' is unset" >&2
+        debug "skipping: session is not interactive and force option is unset"
         return 0
     fi
 fi
@@ -86,19 +86,19 @@ fi
 
 # Parse out the host
 HOST=""
-IS_HTTP=false
-IS_SSH=false
+__is_http=false
+__is_ssh=false
 if [[ "${CLONE_URL}" =~ ^https?://([^@]+@)?([^/:]+) ]]; then
     # Treat the URL as an HTTP URL
     HOST="${BASH_REMATCH[2]}"
-    IS_HTTP=true
+    __is_http=true
 elif [[ "${CLONE_URL}" =~ ^[^@]+@([^:]+) ]]; then
     # Treat the URL as an SSH URL
     HOST="${BASH_REMATCH[1]}"
-    IS_SSH=true
+    __is_ssh=true
 elif [[ "${CLONE_URL}" =~ ^/ ]]; then
     # Local filepath, don't organize
-    echo "WARNING: not organizing, local filepaths unsupported: ${url}"
+    echo "WARNING: not organizing, local filepaths unsupported: ${CLONE_URL}"
     return 0
 else
     # If we couldn't parse the host out, then skip this script
@@ -123,12 +123,12 @@ fi
 #     below based on the host (e.g.: "ssh.dev.azure.com" -> "dev.azure.com")
 #   - TARGET_DIRECTORY_SUFFIX is the host-specific path to the repo
 #    (e.g.: "myorg/myrepo")
-USING_DEFAULT_BASE=false
-TARGET_DIRECTORY_BASE=$(git-option git.gitDirectory)
+__using_default_base=false
+TARGET_DIRECTORY_BASE=$(plugin-option basedir)
 if [[ -z "${TARGET_DIRECTORY_BASE}" ]]; then
-    # We intentionally do not use the `git-option --default` so that we can tell
-    # if `git.gitDirectory` is unset and let the user know to set it.
-    USING_DEFAULT_BASE=true
+    # We intentionally do not use --default so that we can tell
+    # if basedir is unset and let the user know to set it.
+    __using_default_base=true
     TARGET_DIRECTORY_BASE="${HOME}/code/git"
 fi
 debug "TARGET_DIRECTORY_BASE: ${TARGET_DIRECTORY_BASE}"
@@ -139,7 +139,7 @@ TARGET_DIRECTORY_SUFFIX=""
 case "${HOST}" in
     "dev.azure.com")
         # https://dev.azure.com/<org>/<project>/_git/<repo>
-        if ${IS_HTTP}; then
+        if ${__is_http}; then
             # Parse out the organization and project
             if [[ "${CLONE_URL}" =~ ^https?://[^/]+/([^/]+)/([^/]+)/_git/(.*) ]]; then
                 ORG="${BASH_REMATCH[1]}"
@@ -151,7 +151,7 @@ case "${HOST}" in
         ;;
     "ssh.dev.azure.com")
         # git@ssh.dev.azure.com:v3/<org>/<project>/<repo>
-        if ${IS_SSH}; then
+        if ${__is_ssh}; then
             # Parse out the organization and project
             if [[ "${CLONE_URL}" =~ ^[^@]+@[^:]+:v3/([^/]+)/([^/]+)/(.*) ]]; then
                 ORG="${BASH_REMATCH[1]}"
@@ -167,14 +167,14 @@ case "${HOST}" in
         # https://<host>/<org>/<repo>
         # git@<host>:<user>/<repo>.git
         # git@<host>:<org>/<repo>
-        if ${IS_HTTP}; then
+        if ${__is_http}; then
             # Parse out the organization/user and project
             if [[ "${CLONE_URL}" =~ ^https?://[^/]+/([^/]+)/([^/]+)(\.git)?/?$ ]]; then
                 USER="${BASH_REMATCH[1]}"
                 REPO=$(urldecode "${BASH_REMATCH[2]%.git}")
                 TARGET_DIRECTORY_SUFFIX="${USER}/${REPO}"
             fi
-        elif ${IS_SSH}; then
+        elif ${__is_ssh}; then
             # Parse out the organization/user and project
             if [[ "${CLONE_URL}" =~ ^[^@]+@[^:]+:([^/]+)/([^/]+)(\.git)?$ ]]; then
                 USER="${BASH_REMATCH[1]}"
@@ -186,18 +186,18 @@ case "${HOST}" in
     "bitbucket.org")
         # https://bitbucket.org/<org>/<repo>.git
         # git@bitbucket.org:<org>/<repo>.git
-        if ${IS_HTTP}; then
+        if ${__is_http}; then
             # Parse out the organization/user and project
             if [[ "${CLONE_URL}" =~ ^https?://[^/]+/([^/]+)/([^/]+)\.git$ ]]; then
                 USER="${BASH_REMATCH[1]}"
                 REPO=$(urldecode "${BASH_REMATCH[2]%.git}")
                 TARGET_DIRECTORY_SUFFIX="${USER}/${REPO}"
             fi
-        elif ${IS_SSH}; then
+        elif ${__is_ssh}; then
             # Parse out the organization/user and project
             if [[ "${CLONE_URL}" =~ ^[^@]+@[^:]+:([^/]+)/([^/]+)\.git$ ]]; then
                 USER="${BASH_REMATCH[1]}"
-                REPO="${BASH_REMATCH[2]%.git}"
+                REPO=$(urldecode "${BASH_REMATCH[2]%.git}")
                 TARGET_DIRECTORY_SUFFIX="${USER}/${REPO}"
             fi
         fi
@@ -237,7 +237,7 @@ fi
 
 # If we made it this far, then we have a full target path. If we had to use
 # the default base directory, then warn the user
-if ${USING_DEFAULT_BASE}; then
+if ${__using_default_base}; then
     echo "WARNING: git.gitDirectory not set, using default git directory: ${TARGET_DIRECTORY_BASE}" >&2
     # Give them time to cancel
     printf "..."

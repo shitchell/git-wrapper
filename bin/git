@@ -599,13 +599,17 @@ _extensions=()
 EXTENSIONS_PRE=()
 EXTENSIONS_POST=()
 
+# Get the script directory
+SCRIPT_DIR=$(wrapper-option --default="${HOME}/.git.d" scriptDir)
+debug "script directory: ${SCRIPT_DIR}"
+
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 
 # Find pre-process extensions
 _extensions=(
-  "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}.sh"
-  "${HOME}/.git.d/pre-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
-  "${HOME}/.git.d/pre-process.d/"[0-9]*.sh
+  "${SCRIPT_DIR}/pre-process.d/${GIT_SUBCOMMAND,,}.sh"
+  "${SCRIPT_DIR}/pre-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
+  "${SCRIPT_DIR}/pre-process.d/"[0-9]*.sh
 )
 for filepath in "${_extensions[@]}"; do
     [[ -f "${filepath}" && -x "${filepath}" ]] \
@@ -614,9 +618,9 @@ done
 
 # Find post-process extensions
 _extensions=(
-  "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}.sh"
-  "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
-  "${HOME}/.git.d/post-process.d/"[0-9]*.sh
+  "${SCRIPT_DIR}/post-process.d/${GIT_SUBCOMMAND,,}.sh"
+  "${SCRIPT_DIR}/post-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
+  "${SCRIPT_DIR}/post-process.d/"[0-9]*.sh
 )
 for filepath in "${_extensions[@]}"; do
     [[ -f "${filepath}" && -x "${filepath}" ]] \

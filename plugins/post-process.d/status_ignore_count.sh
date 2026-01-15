@@ -2,6 +2,9 @@
 #
 # Show a count of all ignored directories and files at the end of the status
 # message
+#
+# Config:
+#   wrapper.plugin.status_ignore_count.enabled (bool): default true
 
 # Only run when called from an interactive session and not in a pipe
 [[ "${_STDOUT_PIPED}" == "true" || "${_IN_SCRIPT}" == "true" ]] && return 0

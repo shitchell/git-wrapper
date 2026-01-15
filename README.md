@@ -28,6 +28,7 @@ All options are set via `git config`:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `wrapper.enabled` | bool | `true` | Enable/disable the wrapper entirely |
+| `wrapper.scriptDir` | path | `~/.git.d` | Directory containing plugin scripts |
 | `wrapper.showScriptName` | bool | `false` | Prefix plugin output with plugin name |
 | `wrapper.exitOnFailure` | bool | `false` | Exit if a plugin fails |
 | `wrapper.notifyOnModify` | bool | `false` | Show message when plugin sets `OUTPUT_MODIFIED=true` |
@@ -51,6 +52,31 @@ git config wrapper.enabled false
 ```
 
 **Note:** `GIT_PASSTHROUGH` is checked at the very top of the script before anything else loads - it's the most efficient way to bypass the wrapper. `wrapper.enabled` requires the script to load functions, parse arguments, and read config before it can check the setting. Use `GIT_PASSTHROUGH` for performance-sensitive scenarios (e.g., scripts that call git repeatedly); use `wrapper.enabled` for convenience when you want to disable the wrapper for a specific repo via config.
+
+## Plugin Configuration
+
+Plugins use git config subsections for their settings:
+
+```ini
+[wrapper "plugin.commit_pyblack"]
+    enabled = false
+    mode = error
+
+[wrapper "plugin.clone_organize_dirs"]
+    basedir = ~/projects
+```
+
+Or via command line:
+```bash
+# Disable a plugin
+git config wrapper.plugin.commit_pyblack.enabled false
+
+# Set plugin options
+git config wrapper.plugin.commit_pyblack.mode error
+git config wrapper.plugin.clone_organize_dirs.basedir ~/projects
+```
+
+All plugins support `enabled` (default: `true`). Plugin-specific options are documented below.
 
 ## Writing Plugins
 
@@ -78,6 +104,16 @@ Plugins are sourced (not executed), so they have access to:
 | `USE_COLOR` | Whether color output is enabled |
 | `_STDOUT_PIPED` | `true` if stdout is being piped |
 | `_IN_SCRIPT` | `true` if git is being called from a script |
+| `__PLUGIN_NAME` | Current plugin name (filename without `.sh`) |
+
+### Helper Functions
+
+| Function | Description |
+|----------|-------------|
+| `plugin-option [--bool\|--int] [--default VAL] KEY` | Read `wrapper.plugin.<plugin>.<key>` |
+| `wrapper-option [--bool\|--int] [--default VAL] KEY` | Read `wrapper.<key>` |
+| `git-option [--bool\|--int] [--default VAL] KEY` | Read any git config key |
+| `debug MESSAGE` | Print debug message when `DEBUG=true` |
 
 ### Color Variables
 
@@ -123,40 +159,27 @@ if [[ ${GIT_EXIT_CODE} -eq 0 ]]; then
 fi
 ```
 
-## Plugins
+## Sample Plugins
 
-The `plugins/` directory includes ready-to-use plugins:
+The `plugins/` directory includes ready-to-use plugins. See [plugins/README.md](plugins/README.md) for details.
 
-### Pre-process
-
-| Plugin | Description |
-|--------|-------------|
-| `commit_bashsyntaxcheck.sh` | Validate bash syntax with `bash -n` before commit |
-| `commit_pyblack.sh` | Run black on staged Python files |
-| `commit_claude.sh` | Set commit author and GPG options when run inside Claude Code |
-| `commit_noverify.sh` | Prevent git hooks from being bypassed when strict mode is enabled |
-| `clone_organize_dirs.sh` | Organize cloned repos by host/user/repo |
-
-### Post-process
-
-| Plugin | Description |
-|--------|-------------|
-| `commit_todo_check.sh` | Warn about TODOs in committed code |
-| `commit_wip_check.sh` | Check for WIP markers |
-| `status_ignore_count.sh` | Show count of ignored files |
-
-#### clone_organize_dirs.sh
-
-![Clone organize example](screenshots/clone-organize.png)
-
-#### commit_noverify.sh
-
-![No-verify blocked example](screenshots/noverify.png)
-
-To use a sample plugin:
+To use a plugin:
 ```bash
 cp plugins/pre-process.d/commit_bashsyntaxcheck.sh ~/.git.d/pre-process.d/
 ```
+
+| Plugin | Description |
+|--------|-------------|
+| `commit_bashsyntaxcheck.sh` | Validate bash syntax before commit |
+| `commit_pyblack.sh` | Check Python formatting with black |
+| `commit_claude.sh` | Set author/GPG for Claude Code sessions |
+| `commit_noverify.sh` | Block `--no-verify` when strict mode enabled |
+| `clone_organize_dirs.sh` | Organize repos by host/user/repo |
+| `commit_todo_check.sh` | Warn about TODOs in committed code |
+| `commit_wip_check.sh` | Check for WIP markers |
+| `status_ignore_count.sh` | Show ignored file count |
+
+![Clone organize example](screenshots/clone-organize.png)
 
 ## Running Tests
 

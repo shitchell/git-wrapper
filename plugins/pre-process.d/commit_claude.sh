@@ -5,6 +5,9 @@
 # When the CLAUDECODE environment variable is set, automatically set the author
 # to "Claude Code". If a GPG key exists for "Claude Code <noreply@anthropic.com>",
 # enable signing with that key; otherwise, disable GPG signing.
+#
+# Config:
+#   wrapper.plugin.commit_claude.enabled (bool): default true
 
 if [[ -n "${CLAUDECODE}" ]]; then
     GIT_ARGS+=(-c user.name="Claude Code" -c user.email="noreply@anthropic.com")

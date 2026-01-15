@@ -352,9 +352,9 @@ function wrapper-option() {
 
 ## Session Information #########################################################
 
-# Are we in a pipe?
-[[ -t 1 ]] && _IN_TERMINAL=true || _IN_TERMINAL=false
-debug "_IN_TERMINAL = ${_IN_TERMINAL}"
+# Is stdout piped?
+[[ -t 1 ]] && _STDOUT_PIPED=false || _STDOUT_PIPED=true
+debug "_STDOUT_PIPED = ${_STDOUT_PIPED}"
 
 # Are we in a script?
 ## get the calling process arguments
@@ -471,7 +471,7 @@ case "${COLOR_CONFIG}" in
         USE_COLOR="false"
         ;;
     auto)
-        ${_IN_TERMINAL} && USE_COLOR="true" || USE_COLOR="false"
+        ${_STDOUT_PIPED} && USE_COLOR="false" || USE_COLOR="true"
         ;;
     *)
         USE_COLOR="false"

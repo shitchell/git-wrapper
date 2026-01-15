@@ -3,8 +3,8 @@
 # Show a count of all ignored directories and files at the end of the status
 # message
 
-# Only run when called from an interactive session and not in a pipe.
-[[ "${_IN_TERMINAL}" != "true" || "${IN_SCRIPT}" == "true" ]] && return 0
+# Only run when called from an interactive session and not in a pipe
+[[ "${_STDOUT_PIPED}" == "true" || "${_IN_SCRIPT}" == "true" ]] && return 0
 
 # Don't show the last line if `--ignored` is in the subcommands
 __using_ignored=false

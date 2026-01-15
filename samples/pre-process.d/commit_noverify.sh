@@ -15,7 +15,11 @@ fi
 # Check for --no-verify in args
 for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
     if [[ "${__arg}" == "--no-verify" || "${__arg}" == "-n" ]]; then
-        echo "error: --no-verify is disabled in this repository" >&2
+        echo ""
+        echo "┌─────────────────────────────────────────────────────────────────┐"
+        echo "│  --no-verify is disabled                                        │"
+        echo "└─────────────────────────────────────────────────────────────────┘"
+        echo ""
         RUN_GIT_CMD=false
         return 1
     fi

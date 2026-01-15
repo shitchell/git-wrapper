@@ -226,6 +226,18 @@ function run-plugin() {
         return
     fi
 
+    # Extract the plugin name (filename without extension) for plugin-option
+    __PLUGIN_NAME=$(basename "${__plugin_path}" .sh)
+    debug "plugin name: ${__PLUGIN_NAME}"
+
+    # Check if plugin is enabled (default: true)
+    local -- __plugin_enabled
+    __plugin_enabled=$(plugin-option --bool --default=true enabled)
+    if [[ ${__plugin_enabled} != "true" ]]; then
+        debug "plugin disabled: ${__PLUGIN_NAME}"
+        return 0
+    fi
+
     # Get the plugin name if requested
     if ${__do_show_plugin_name}; then
         __plugin_name=$(basename "${__plugin_path}" | sed -E 's/\.[^.]+$//')
@@ -347,6 +359,42 @@ function git-option() {
 # Alias for `git-option --wrapper`
 function wrapper-option() {
     git-option --wrapper "${@}"
+}
+
+# Get a plugin-specific option from `wrapper.plugin.<plugin_name>.<key>`
+# Requires __PLUGIN_NAME to be set before calling
+# Usage: plugin-option [--bool|--int|etc] [--default <value>] <key>
+function plugin-option() {
+    if [[ -z ${__PLUGIN_NAME} ]]; then
+        echo "error: __PLUGIN_NAME not set" >&2
+        return 1
+    fi
+    local -- __key
+    local -a __args
+
+    # Separate the key from other arguments
+    while [[ ${#} -gt 0 ]]; do
+        case ${1} in
+            -*)
+                __args+=("${1}")
+                ;;
+            *)
+                if [[ -z ${__key} ]]; then
+                    __key=${1}
+                else
+                    __args+=("${1}")
+                fi
+                ;;
+        esac
+        shift 1
+    done
+
+    if [[ -z ${__key} ]]; then
+        echo "error: no key specified" >&2
+        return 1
+    fi
+
+    git-option "${__args[@]}" "wrapper.plugin.${__PLUGIN_NAME}.${__key}"
 }
 
 

@@ -37,6 +37,10 @@
 # ~ wrapper.exitOnFailure: if set to true, the script will exit with the exit
 #   code of the pre-/post-process scripts if they fail. if a pre-process script
 #   fails, the git command will not be run.
+# - wrapper.notifyOnModify: if set to true, a message will be shown when a
+#   post-process plugin modifies the git output (plugin sets OUTPUT_MODIFIED=true).
+# - wrapper.verbose: if set to true, enables both showScriptName and
+#   notifyOnModify.
 #
 # Determine the path to the actual git executable.
 #
@@ -75,7 +79,7 @@ while read -r filepath; do
     [[ "${filepath_real}" == "${__GIT_WRAPPER_PATH}" ]] && continue
     GIT="${filepath_real}"
     break
-done <<< $(which -a git)
+done < <(which -a git)
 
 # If git is not found, we can't do shit
 if [[ -z "${GIT}" ]]; then
@@ -154,12 +158,11 @@ function run-plugin() {
     while [[ ${#} -gt 0 ]]; do
         case ${1} in
             --show-plugin-name=*)
-                if [[ "${1}" == *"="* ]]; then
-                    do_show_plugin_name="${1#*=}"
-                else
-                    do_show_plugin_name=true
-                    shift 1
-                fi
+                do_show_plugin_name="${1#*=}"
+                shift 1
+                ;;
+            --show-plugin-name)
+                do_show_plugin_name=true
                 shift 1
                 ;;
             --no-show-plugin-name)
@@ -167,28 +170,28 @@ function run-plugin() {
                 shift 1
                 ;;
             --stdout-label=*)
-                if [[ "${1}" == *"="* ]]; then
-                    stdout_label="${1#*=}"
-                else
-                    stdout_label="${2}"
-                    shift 1
-                fi
+                stdout_label="${1#*=}"
                 shift 1
                 ;;
+            --stdout-label)
+                stdout_label="${2}"
+                shift 2
+                ;;
             --stderr-label=*)
-                if [[ "${1}" == *"="* ]]; then
-                    stderr_label="${1#*=}"
-                else
-                    stderr_label="${2}"
-                    shift 1
-                fi
+                stderr_label="${1#*=}"
                 shift 1
+                ;;
+            --stderr-label)
+                stderr_label="${2}"
+                shift 2
                 ;;
             --warnings)
                 do_warnings=true
+                shift 1
                 ;;
             --no-warnings)
                 do_warnings=false
+                shift 1
                 ;;
             -*)
                 echo "error: unknown option: ${1}" >&2
@@ -221,7 +224,7 @@ function run-plugin() {
 
     # Get the plugin name if requested
     if ${do_show_plugin_name}; then
-        plugin_name=$(basename "${filepath}" | sed -E 's/\.[^.]+$//')
+        plugin_name=$(basename "${plugin_path}" | sed -E 's/\.[^.]+$//')
         # Replace underscores and hyphens with spaces
         plugin_name="${plugin_name//[-_]/ }"
         # If the plugin name starts with a number but has other text, remove the
@@ -446,8 +449,19 @@ debug "exit on failure: ${EXIT_ON_FAILURE}"
 SHOW_SCRIPT_NAME=$(wrapper-option --as=bool --default=false showScriptName)
 debug "show script name: ${SHOW_SCRIPT_NAME}"
 
+# Determine if we should notify when plugins modify output
+NOTIFY_ON_MODIFY=$(wrapper-option --as=bool --default=false notifyOnModify)
+debug "notify on modify: ${NOTIFY_ON_MODIFY}"
+
+# Verbose mode enables both showScriptName and notifyOnModify
+if $(wrapper-option --as=bool --default=false verbose); then
+    SHOW_SCRIPT_NAME=true
+    NOTIFY_ON_MODIFY=true
+    debug "verbose mode enabled"
+fi
+
 # Determine if we should use colors
-COLOR_CONFIG=$(git-option --default=auto ui.color)
+COLOR_CONFIG=$(git-option --default=auto color.ui)
 debug "color config: ${COLOR_CONFIG}"
 case "${COLOR_CONFIG}" in
     always | true)
@@ -468,6 +482,7 @@ debug "use color: ${USE_COLOR}"
 # Set behavior options as read only
 readonly EXIT_ON_FAILURE
 readonly SHOW_SCRIPT_NAME
+readonly NOTIFY_ON_MODIFY
 readonly USE_COLOR
 
 
@@ -528,8 +543,7 @@ fi
 GIT_EXIT_CODE=0
 PRE_EXIT_CODE=0
 POST_EXIT_CODE=0
-declare -i OUTPUT_MODIFIED=800  # exit code for extensions which modify output
-GIT_PID=0  # will be set as read only to the PID of the git command if it is run
+OUTPUT_MODIFIED=false  # plugins can set this to true if they modify git output
 
 
 ## Find extensions #############################################################
@@ -584,7 +598,7 @@ for filepath in "${EXTENSIONS_PRE[@]}"; do
         --stdout-label="" \
         --stderr-label="" \
         "${filepath}"
-        PRE_EXIT_CODE=${?}
+    PRE_EXIT_CODE=${?}
 
     if [[ ${PRE_EXIT_CODE} -ne 0 ]]; then
         echo "pre-process script '${filename}' failed with exit code ${PRE_EXIT_CODE}" >&2
@@ -637,5 +651,10 @@ for filepath in "${EXTENSIONS_POST[@]}"; do
     fi
 done
 shopt -u nullglob
+
+# Notify if output was modified by a plugin
+if ${NOTIFY_ON_MODIFY} && ${OUTPUT_MODIFIED}; then
+    echo "(output modified by post-process plugin)" >&2
+fi
 
 exit ${GIT_EXIT_CODE}

@@ -2,7 +2,7 @@
 
 # Setup
 setup() {
-    TEST_DIR="${BATS_TEST_FILENAME%/*}"
+    TEST_DIR="$(dirname "$BATS_TEST_FILENAME")"
     WRAPPER_PATH="${TEST_DIR%/*}/bin/git"
     FIXTURES_DIR="$TEST_DIR/fixtures"
 

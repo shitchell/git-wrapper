@@ -91,3 +91,9 @@ Check for WIP markers in committed code.
 ### status_ignore_count.sh
 
 Show count of ignored files after `git status`. Only runs in interactive sessions.
+
+### push_jedi.sh
+
+Print a blessing after force pushes. And also with you.
+
+![May the force be with you](../screenshots/push-jedi.png)

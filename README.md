@@ -123,9 +123,9 @@ if [[ ${GIT_EXIT_CODE} -eq 0 ]]; then
 fi
 ```
 
-## Sample Plugins
+## Plugins
 
-The `samples/` directory includes ready-to-use plugins:
+The `plugins/` directory includes ready-to-use plugins:
 
 ### Pre-process
 
@@ -155,7 +155,7 @@ The `samples/` directory includes ready-to-use plugins:
 
 To use a sample plugin:
 ```bash
-cp samples/pre-process.d/commit_bashsyntaxcheck.sh ~/.git.d/pre-process.d/
+cp plugins/pre-process.d/commit_bashsyntaxcheck.sh ~/.git.d/pre-process.d/
 ```
 
 ## Running Tests

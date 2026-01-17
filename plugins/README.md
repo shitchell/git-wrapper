@@ -94,6 +94,6 @@ Show count of ignored files after `git status`. Only runs in interactive session
 
 ### push_jedi.sh
 
-Print a blessing after force pushes. And also with you.
+Print a blessing after force pushes (`--force`, `-f`, `--force-with-lease`, `--force-if-includes`). And also with you.
 
 ![May the force be with you](../screenshots/push-jedi.png)

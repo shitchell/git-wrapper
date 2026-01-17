@@ -8,10 +8,12 @@
 # Only run on successful push
 [[ ${GIT_EXIT_CODE} -ne 0 ]] && return 0
 
-# Check for --force or -f in args
+# Check for force push flags in args
 for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
-    if [[ "${__arg}" == "--force" || "${__arg}" == "-f" ]]; then
-        echo "${S_DIM}May the force be with you${S_RESET}"
-        return 0
-    fi
+    case "${__arg}" in
+        --force | -f | --force-with-lease | --force-with-lease=* | --force-if-includes)
+            echo "${S_DIM}May the force be with you${S_RESET}"
+            return 0
+            ;;
+    esac
 done

@@ -23,17 +23,8 @@
 #   to git without running any pre-/post-process scripts.
 # - wrapper.showScriptName: if set to true, the pre-/post-process script output
 #   will be prefixed with the name of the script that is being run.
-# ~ wrapper.disablePreProcess: if set to true, the pre-process scripts will not
-#   be run.
-# ~ wrapper.disablePostProcess: if set to true, the post-process scripts will
-#   not be run.
 # ~ wrapper.scriptDir: the directory where the pre-/post-process scripts are
 #   located. If not set, the default is ~/.git.d/
-# ~ wrapper.disableScripts: a comma-separated list of scripts to disable.
-#   Scripts are specified by name without the .sh extension.
-# ~ wrapper.disableSubcommands: a comma-separated list of git subcommands to
-#   disable. If a subcommand is disabled, then the pre-/post-process scripts
-#   will not be run for that subcommand.
 # ~ wrapper.exitOnFailure: if set to true, the script will exit with the exit
 #   code of the pre-/post-process scripts if they fail. if a pre-process script
 #   fails, the git command will not be run.
@@ -41,6 +32,7 @@
 #   post-process plugin modifies the git output (plugin sets OUTPUT_MODIFIED=true).
 # - wrapper.verbose: if set to true, enables both showScriptName and
 #   notifyOnModify.
+# - wrapper.plugin.<name>.enabled: enable/disable specific plugins (default: true)
 #
 # Determine the path to the actual git executable.
 #

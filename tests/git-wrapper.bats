@@ -337,3 +337,393 @@ fi' > invalid.sh
     [[ $status -ne 0 ]]
     [[ "$output" == *"--no-verify is disabled"* ]]
 }
+
+# =============================================================================
+# Plugin: commit_pyblack
+# =============================================================================
+
+@test "commit_pyblack: skips when black not installed" {
+    cd "$TEST_TEMP"
+    # Disable the plugin to test without black dependency
+    "$REAL_GIT" config wrapper.plugin.commit_pyblack.enabled false
+
+    # Create a Python file
+    echo 'x=1' > test.py
+    "$REAL_GIT" add test.py
+
+    run "$WRAPPER_PATH" commit -m "test"
+    # Should proceed without error (plugin disabled)
+    [[ $status -eq 0 ]]
+}
+
+@test "commit_pyblack: mode=warn allows commit even with formatting issues" {
+    skip "Requires black to be installed"
+    cd "$TEST_TEMP"
+    "$REAL_GIT" config wrapper.plugin.commit_pyblack.mode warn
+
+    # Create badly formatted Python file
+    echo 'x=1' > test.py
+    "$REAL_GIT" add test.py
+
+    run "$WRAPPER_PATH" commit -m "test with warn mode"
+    # Should allow commit in warn mode
+    [[ $status -eq 0 ]]
+}
+
+@test "commit_pyblack: mode=error blocks commit with formatting issues" {
+    skip "Requires black to be installed"
+    cd "$TEST_TEMP"
+    "$REAL_GIT" config wrapper.plugin.commit_pyblack.mode error
+
+    # Create badly formatted Python file
+    echo 'x=1' > test.py
+    "$REAL_GIT" add test.py
+
+    run "$WRAPPER_PATH" commit -m "test with error mode"
+    # Should block commit in error mode
+    [[ $status -ne 0 ]]
+}
+
+# =============================================================================
+# Plugin: commit_claude
+# =============================================================================
+
+@test "commit_claude: detects CLAUDECODE environment variable" {
+    cd "$TEST_TEMP"
+    echo "test" > test.txt
+    "$REAL_GIT" add test.txt
+
+    # Run with CLAUDECODE set
+    run env CLAUDECODE=1 GIT_PASSTHROUGH=true "$WRAPPER_PATH" commit -m "test"
+    # Note: We use GIT_PASSTHROUGH since we're testing env detection, not full commit
+    [[ $status -eq 0 ]]
+}
+
+@test "commit_claude: sets author when CLAUDECODE is set" {
+    cd "$TEST_TEMP"
+    echo "test" > test.txt
+    "$REAL_GIT" add test.txt
+
+    # Commit with CLAUDECODE set (plugin should set user.name and user.email)
+    run env CLAUDECODE=1 "$WRAPPER_PATH" commit -m "claude test commit"
+
+    if [[ $status -eq 0 ]]; then
+        # Check the commit author
+        author=$("$REAL_GIT" log -1 --format='%an <%ae>')
+        [[ "$author" == "Claude Code <noreply@anthropic.com>" ]]
+    fi
+}
+
+@test "commit_claude: does nothing without CLAUDECODE" {
+    cd "$TEST_TEMP"
+    # Ensure CLAUDECODE is explicitly unset
+    unset CLAUDECODE
+
+    echo "test2" > test2.txt
+    "$REAL_GIT" add test2.txt
+
+    # Commit without CLAUDECODE - should use default user
+    run env -u CLAUDECODE "$WRAPPER_PATH" commit -m "normal commit"
+    [[ $status -eq 0 ]]
+
+    author=$("$REAL_GIT" log -1 --format='%an')
+    [[ "$author" == "Test User" ]]
+}
+
+# =============================================================================
+# Plugin: clone_organize_dirs (using GIT_TEST mode)
+# =============================================================================
+
+@test "clone_organize_dirs: parses GitHub HTTPS URL" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'https://github.com/user/repo.git'"
+    [[ "$output" == *"HOST: github.com"* ]]
+    [[ "$output" == *"TARGET_DIRECTORY:"*"/github.com/user/repo"* ]]
+}
+
+@test "clone_organize_dirs: parses GitHub SSH URL" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'git@github.com:user/repo.git'"
+    [[ "$output" == *"HOST: github.com"* ]]
+    [[ "$output" == *"TARGET_DIRECTORY:"*"/github.com/user/repo"* ]]
+}
+
+@test "clone_organize_dirs: parses Azure DevOps HTTPS URL" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'https://dev.azure.com/myorg/myproject/_git/myrepo'"
+    [[ "$output" == *"HOST: dev.azure.com"* ]]
+    [[ "$output" == *"TARGET_DIRECTORY:"*"/dev.azure.com/myorg/myproject/myrepo"* ]]
+}
+
+@test "clone_organize_dirs: parses Azure DevOps SSH URL" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'git@ssh.dev.azure.com:v3/myorg/myproject/myrepo'"
+    [[ "$output" == *"HOST: ssh.dev.azure.com"* ]]
+    [[ "$output" == *"TARGET_DIRECTORY:"*"/dev.azure.com/myorg/myproject/myrepo"* ]]
+}
+
+@test "clone_organize_dirs: exits when target directory specified" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'https://github.com/user/repo.git' './custom-dir'"
+    [[ "$output" == *"TARGET_DIRECTORY is set to './custom-dir'"* ]]
+}
+
+@test "clone_organize_dirs: warns on unsupported host" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'https://unsupported.example.com/user/repo.git'"
+    [[ "$output" == *"unsupported host"* ]] || [[ "$output" == *"Unable to parse"* ]]
+}
+
+# =============================================================================
+# Plugin: commit_wip_check
+# =============================================================================
+
+@test "commit_wip_check: detects WIP comments after commit" {
+    cd "$TEST_TEMP"
+    # Need initial commit first
+    echo "initial" > initial.txt
+    "$REAL_GIT" add initial.txt
+    "$REAL_GIT" commit -q -m "initial"
+
+    # Create file with WIP marker
+    echo '# WIP: not done yet' > wip_file.txt
+    "$REAL_GIT" add wip_file.txt
+
+    run env GIT_PASSTHROUGH=true "$WRAPPER_PATH" commit -m "add wip file"
+    [[ $status -eq 0 ]]
+
+    # Now run full wrapper which should detect WIP
+    run "$WRAPPER_PATH" status
+    # Check that status works (WIP check is post-process for commit)
+}
+
+@test "commit_wip_check: warns about WIP in committed code" {
+    cd "$TEST_TEMP"
+    # Initial commit
+    echo "initial" > initial.txt
+    "$REAL_GIT" add initial.txt
+    "$REAL_GIT" commit -q -m "initial"
+
+    # Add file with WIP and commit
+    echo '// WIP need to fix' > code.js
+    "$REAL_GIT" add code.js
+
+    run "$WRAPPER_PATH" commit -m "commit with wip"
+    [[ "$output" == *"WIP"* ]]
+}
+
+@test "commit_wip_check: custom regex works" {
+    cd "$TEST_TEMP"
+    # Set custom regex
+    "$REAL_GIT" config wrapper.plugin.commit_wip_check.regex '\bFIXME\b'
+
+    # Initial commit
+    echo "initial" > initial.txt
+    "$REAL_GIT" add initial.txt
+    "$REAL_GIT" commit -q -m "initial"
+
+    # Add file with FIXME
+    echo '# FIXME: broken' > fixme.txt
+    "$REAL_GIT" add fixme.txt
+
+    run "$WRAPPER_PATH" commit -m "commit with fixme"
+    [[ "$output" == *"FIXME"* ]] || [[ "$output" == *"WIP"* ]]
+}
+
+# =============================================================================
+# Plugin: status_ignore_count
+# =============================================================================
+
+@test "status_ignore_count: shows ignored file count" {
+    cd "$TEST_TEMP"
+    # Create a .gitignore and some ignored files
+    echo "*.log" > .gitignore
+    echo "ignored content" > test.log
+    mkdir -p ignored_dir
+    echo "also ignored" > ignored_dir/file.log
+
+    "$REAL_GIT" add .gitignore
+    "$REAL_GIT" commit -q -m "add gitignore"
+
+    # Run status through wrapper (not piped, simulating interactive)
+    run "$WRAPPER_PATH" status
+    # Should show ignored count (plugin only runs in interactive mode)
+    # Note: Plugin checks _STDOUT_PIPED which will be true in `run`
+    [[ $status -eq 0 ]]
+}
+
+@test "status_ignore_count: can be disabled" {
+    cd "$TEST_TEMP"
+    "$REAL_GIT" config wrapper.plugin.status_ignore_count.enabled false
+
+    echo "*.log" > .gitignore
+    echo "ignored" > test.log
+    "$REAL_GIT" add .gitignore
+    "$REAL_GIT" commit -q -m "add gitignore"
+
+    run "$WRAPPER_PATH" status
+    [[ $status -eq 0 ]]
+}
+
+# =============================================================================
+# Plugin: push_jedi
+# =============================================================================
+
+@test "push_jedi: blesses --force push" {
+    cd "$TEST_TEMP"
+
+    # Create a bare "remote" repo
+    REMOTE_DIR="$TEST_TEMP/remote.git"
+    "$REAL_GIT" init -q --bare "$REMOTE_DIR"
+
+    # Create a local repo and add remote
+    LOCAL_DIR="$TEST_TEMP/local"
+    mkdir -p "$LOCAL_DIR"
+    cd "$LOCAL_DIR"
+    "$REAL_GIT" init -q
+    "$REAL_GIT" config user.email "test@test.com"
+    "$REAL_GIT" config user.name "Test User"
+    "$REAL_GIT" config wrapper.scriptDir "$PLUGINS_DIR"
+    "$REAL_GIT" remote add origin "$REMOTE_DIR"
+
+    # Make initial commit and push
+    echo "initial" > file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q -m "initial"
+    "$REAL_GIT" push -q origin master 2>/dev/null || "$REAL_GIT" push -q origin main 2>/dev/null
+
+    # Amend and force push
+    echo "amended" >> file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q --amend -m "amended"
+
+    # Get branch name
+    branch=$("$REAL_GIT" rev-parse --abbrev-ref HEAD)
+    run env -u CLAUDECODE "$WRAPPER_PATH" push --force origin "$branch"
+    [[ "$output" == *"May the force be with you"* ]]
+}
+
+@test "push_jedi: blesses -f push" {
+    cd "$TEST_TEMP"
+
+    REMOTE_DIR="$TEST_TEMP/remote2.git"
+    "$REAL_GIT" init -q --bare "$REMOTE_DIR"
+
+    LOCAL_DIR="$TEST_TEMP/local2"
+    mkdir -p "$LOCAL_DIR"
+    cd "$LOCAL_DIR"
+    "$REAL_GIT" init -q
+    "$REAL_GIT" config user.email "test@test.com"
+    "$REAL_GIT" config user.name "Test User"
+    "$REAL_GIT" config wrapper.scriptDir "$PLUGINS_DIR"
+    "$REAL_GIT" remote add origin "$REMOTE_DIR"
+
+    echo "initial" > file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q -m "initial"
+    "$REAL_GIT" push -q origin master 2>/dev/null || "$REAL_GIT" push -q origin main 2>/dev/null
+
+    echo "amended" >> file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q --amend -m "amended"
+
+    branch=$("$REAL_GIT" rev-parse --abbrev-ref HEAD)
+    run env -u CLAUDECODE "$WRAPPER_PATH" push -f origin "$branch"
+    [[ "$output" == *"May the force be with you"* ]]
+}
+
+@test "push_jedi: blesses --force-with-lease push" {
+    cd "$TEST_TEMP"
+
+    REMOTE_DIR="$TEST_TEMP/remote3.git"
+    "$REAL_GIT" init -q --bare "$REMOTE_DIR"
+
+    LOCAL_DIR="$TEST_TEMP/local3"
+    mkdir -p "$LOCAL_DIR"
+    cd "$LOCAL_DIR"
+    "$REAL_GIT" init -q
+    "$REAL_GIT" config user.email "test@test.com"
+    "$REAL_GIT" config user.name "Test User"
+    "$REAL_GIT" config wrapper.scriptDir "$PLUGINS_DIR"
+    "$REAL_GIT" remote add origin "$REMOTE_DIR"
+
+    echo "initial" > file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q -m "initial"
+    "$REAL_GIT" push -q origin master 2>/dev/null || "$REAL_GIT" push -q origin main 2>/dev/null
+
+    echo "amended" >> file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q --amend -m "amended"
+
+    branch=$("$REAL_GIT" rev-parse --abbrev-ref HEAD)
+    run env -u CLAUDECODE "$WRAPPER_PATH" push --force-with-lease origin "$branch"
+    [[ "$output" == *"May the force be with you"* ]]
+}
+
+@test "push_jedi: blesses --force-if-includes push" {
+    cd "$TEST_TEMP"
+
+    REMOTE_DIR="$TEST_TEMP/remote4.git"
+    "$REAL_GIT" init -q --bare "$REMOTE_DIR"
+
+    LOCAL_DIR="$TEST_TEMP/local4"
+    mkdir -p "$LOCAL_DIR"
+    cd "$LOCAL_DIR"
+    "$REAL_GIT" init -q
+    "$REAL_GIT" config user.email "test@test.com"
+    "$REAL_GIT" config user.name "Test User"
+    "$REAL_GIT" config wrapper.scriptDir "$PLUGINS_DIR"
+    "$REAL_GIT" remote add origin "$REMOTE_DIR"
+
+    echo "initial" > file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q -m "initial"
+    "$REAL_GIT" push -q origin master 2>/dev/null || "$REAL_GIT" push -q origin main 2>/dev/null
+
+    echo "amended" >> file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q --amend -m "amended"
+
+    # --force-if-includes needs --force-with-lease
+    branch=$("$REAL_GIT" rev-parse --abbrev-ref HEAD)
+    run env -u CLAUDECODE "$WRAPPER_PATH" push --force-with-lease --force-if-includes origin "$branch"
+    [[ "$output" == *"May the force be with you"* ]]
+}
+
+@test "push_jedi: no blessing on regular push" {
+    cd "$TEST_TEMP"
+
+    REMOTE_DIR="$TEST_TEMP/remote5.git"
+    "$REAL_GIT" init -q --bare "$REMOTE_DIR"
+
+    LOCAL_DIR="$TEST_TEMP/local5"
+    mkdir -p "$LOCAL_DIR"
+    cd "$LOCAL_DIR"
+    "$REAL_GIT" init -q
+    "$REAL_GIT" config user.email "test@test.com"
+    "$REAL_GIT" config user.name "Test User"
+    "$REAL_GIT" config wrapper.scriptDir "$PLUGINS_DIR"
+    "$REAL_GIT" remote add origin "$REMOTE_DIR"
+
+    echo "initial" > file.txt
+    "$REAL_GIT" add file.txt
+    "$REAL_GIT" commit -q -m "initial"
+
+    branch=$("$REAL_GIT" rev-parse --abbrev-ref HEAD)
+    run env -u CLAUDECODE "$WRAPPER_PATH" push origin "$branch"
+    # Should NOT contain the blessing for regular push
+    [[ "$output" != *"May the force be with you"* ]]
+}

@@ -72,6 +72,27 @@ export __GIT_WRAPPER_DEPTH
 if [[ ${__GIT_WRAPPER_DEPTH} -gt 30 ]]; then
     echo "ERROR: git wrapper recursion detected (depth: ${__GIT_WRAPPER_DEPTH})" >&2
     echo "ERROR: this usually means a plugin is calling 'git' instead of '\"\${GIT}\"'" >&2
+    echo "" >&2
+    echo "=== Debug Info ===" >&2
+    echo "Command: $0 $*" >&2
+    echo "PWD: ${PWD}" >&2
+    echo "GIT: ${GIT:-<not yet set>}" >&2
+    echo "" >&2
+    echo "=== Process Tree ===" >&2
+    if command -v pstree &>/dev/null; then
+        pstree -s -p $$ 2>/dev/null >&2 || ps -o pid,ppid,comm -p $$ >&2
+    else
+        # Walk up the process tree manually
+        __pid=$$
+        while [[ ${__pid} -gt 1 ]]; do
+            ps -o pid=,ppid=,args= -p "${__pid}" 2>/dev/null >&2
+            __pid=$(ps -o ppid= -p "${__pid}" 2>/dev/null | tr -d ' ')
+            [[ -z "${__pid}" ]] && break
+        done
+    fi
+    echo "" >&2
+    echo "=== Wrapper Environment ===" >&2
+    env | grep -E '^(GIT_|__GIT_|DEBUG|CLAUDECODE)' >&2 || echo "(none)" >&2
     exit 1
 fi
 

@@ -61,6 +61,21 @@ __GIT_WRAPPER_VERSION="0.1.0"
 __GIT_WRAPPER_PATH=$(realpath "${0}")
 
 
+## Fork bomb detection #########################################################
+
+# Track recursion depth to detect infinite loops (e.g., plugin calling 'git'
+# instead of '"${GIT}"')
+: "${__GIT_WRAPPER_DEPTH:=0}"
+(( __GIT_WRAPPER_DEPTH++ ))
+export __GIT_WRAPPER_DEPTH
+
+if [[ ${__GIT_WRAPPER_DEPTH} -gt 30 ]]; then
+    echo "ERROR: git wrapper recursion detected (depth: ${__GIT_WRAPPER_DEPTH})" >&2
+    echo "ERROR: this usually means a plugin is calling 'git' instead of '\"\${GIT}\"'" >&2
+    exit 1
+fi
+
+
 ## Find `git` ##################################################################
 
 # Find the first git executable that isn't this script

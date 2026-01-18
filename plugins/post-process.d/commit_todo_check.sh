@@ -26,7 +26,7 @@ fi
 __todo_regex=$(plugin-option --default='\bTODO:' regex)
 debug "using regex /${__todo_regex}/ against ${#__committed_files[@]} files"
 readarray -t __todos < <(
-    "${GIT}" -c color.ui=never "${GIT_ARGS[@]}" grep "${__todo_regex}" -- "${__committed_files[@]}" \
+    "${GIT}" "${GIT_ARGS[@]}" -c color.ui=never grep "${__todo_regex}" -- "${__committed_files[@]}" \
         | grep -vE '^(Binary|diff|index) file'
 )
 

@@ -76,82 +76,82 @@ GIT_POSITIONAL_ARGS=( "${GIT_POSITIONAL_ARGS[@]}" )
 if [[ -z "${GIT_POSITIONAL_ARGS[0]}" ]]; then
     ## determine the positional arguments
     GIT_POSITIONAL_ARGS=()
-    for arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
-        [[ "${arg}" == "-"* ]] && continue
-        GIT_POSITIONAL_ARGS+=("${arg}")
+    for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
+        [[ "${__arg}" == "-"* ]] && continue
+        GIT_POSITIONAL_ARGS+=("${__arg}")
     done
 fi
-CLONE_URL="${GIT_POSITIONAL_ARGS[0]}"
-TARGET_DIRECTORY="${GIT_POSITIONAL_ARGS[1]}"
-if [[ -n "${TARGET_DIRECTORY}" ]]; then
+__clone_url="${GIT_POSITIONAL_ARGS[0]}"
+__target_directory="${GIT_POSITIONAL_ARGS[1]}"
+if [[ -n "${__target_directory}" ]]; then
     if [[ "${GIT_TEST}" =~ ^"1"|"true"$ ]]; then
-        echo "TARGET_DIRECTORY is set to '${TARGET_DIRECTORY}', exiting..."
+        echo "__target_directory is set to '${__target_directory}', exiting..."
     fi
     return 0
 fi
 
 # Parse out the host
-HOST=""
+__host=""
 __is_http=false
 __is_ssh=false
-if [[ "${CLONE_URL}" =~ ^https?://([^@]+@)?([^/:]+) ]]; then
+if [[ "${__clone_url}" =~ ^https?://([^@]+@)?([^/:]+) ]]; then
     # Treat the URL as an HTTP URL
-    HOST="${BASH_REMATCH[2]}"
+    __host="${BASH_REMATCH[2]}"
     __is_http=true
-elif [[ "${CLONE_URL}" =~ ^[^@]+@([^:]+) ]]; then
+elif [[ "${__clone_url}" =~ ^[^@]+@([^:]+) ]]; then
     # Treat the URL as an SSH URL
-    HOST="${BASH_REMATCH[1]}"
+    __host="${BASH_REMATCH[1]}"
     __is_ssh=true
-elif [[ "${CLONE_URL}" =~ ^/ ]]; then
+elif [[ "${__clone_url}" =~ ^/ ]]; then
     # Local filepath, don't organize
-    echo "WARNING: not organizing, local filepaths unsupported: ${CLONE_URL}"
+    echo "WARNING: not organizing, local filepaths unsupported: ${__clone_url}"
     return 0
 else
     # If we couldn't parse the host out, then skip this script
-    echo "WARNING: Unable to parse host from clone URL: ${CLONE_URL}" >&2
+    echo "WARNING: Unable to parse host from clone URL: ${__clone_url}" >&2
     return 0
 fi
 
-[[ "${GIT_TEST}" =~ ^"1"|"true"$ ]] && echo "HOST: ${HOST}"
+[[ "${GIT_TEST}" =~ ^"1"|"true"$ ]] && echo "__host: ${__host}"
 
-if [[ -z "${HOST}" ]]; then
+if [[ -z "${__host}" ]]; then
     # Ignore for now
-    echo "WARNING: Unable to parse host from clone URL: ${CLONE_URL}" >&2
+    echo "WARNING: Unable to parse host from clone URL: ${__clone_url}" >&2
     return 0
 fi
 
 # If we made it this far, then we have a host and need to start building the
 # target directory. At the final stage, the target directory will be set to:
-#   ${TARGET_DIRECTORY_BASE}/${TARGET_DIRECTORY_HOST}/${TARGET_DIRECTORY_SUFFIX}
+#   ${__target_directory_base}/${__target_directory_host}/${__target_directory_suffix}
 # Where:
-#   - TARGET_DIRECTORY_BASE is the base directory to organize all repos into
-#   - TARGET_DIRECTORY_HOST is the host of the clone URL, optionally modified
+#   - __target_directory_base is the base directory to organize all repos into
+#   - __target_directory_host is the host of the clone URL, optionally modified
 #     below based on the host (e.g.: "ssh.dev.azure.com" -> "dev.azure.com")
-#   - TARGET_DIRECTORY_SUFFIX is the host-specific path to the repo
+#   - __target_directory_suffix is the host-specific path to the repo
 #    (e.g.: "myorg/myrepo")
 __using_default_base=false
-TARGET_DIRECTORY_BASE=$(plugin-option basedir)
-if [[ -z "${TARGET_DIRECTORY_BASE}" ]]; then
+__target_directory_base=$(plugin-option basedir)
+if [[ -z "${__target_directory_base}" ]]; then
     # We intentionally do not use --default so that we can tell
     # if basedir is unset and let the user know to set it.
     __using_default_base=true
-    TARGET_DIRECTORY_BASE="${HOME}/code/git"
+    __target_directory_base="${HOME}/code/git"
 fi
-debug "TARGET_DIRECTORY_BASE: ${TARGET_DIRECTORY_BASE}"
+debug "__target_directory_base: ${__target_directory_base}"
 
-# Based on the host, determine TARGET_DIRECTORY_SUFFIX and TARGET_DIRECTORY_HOST
-TARGET_DIRECTORY_HOST="${HOST}"
-TARGET_DIRECTORY_SUFFIX=""
-case "${HOST}" in
+# Based on the host, determine __target_directory_suffix and __target_directory_host
+__target_directory_host="${__host}"
+__target_directory_suffix=""
+case "${__host}" in
     "dev.azure.com")
         # https://dev.azure.com/<org>/<project>/_git/<repo>
         if ${__is_http}; then
             # Parse out the organization and project
-            if [[ "${CLONE_URL}" =~ ^https?://[^/]+/([^/]+)/([^/]+)/_git/(.*) ]]; then
-                ORG="${BASH_REMATCH[1]}"
-                PROJECT=$(urldecode "${BASH_REMATCH[2]}")
-                REPO=$(urldecode "${BASH_REMATCH[3]%.git}")
-                TARGET_DIRECTORY_SUFFIX="${ORG}/${PROJECT}/${REPO}"
+            if [[ "${__clone_url}" =~ ^https?://[^/]+/([^/]+)/([^/]+)/_git/(.*) ]]; then
+                __org="${BASH_REMATCH[1]}"
+                __project=$(urldecode "${BASH_REMATCH[2]}")
+                __repo=$(urldecode "${BASH_REMATCH[3]%.git}")
+                __target_directory_suffix="${__org}/${__project}/${__repo}"
             fi
         fi
         ;;
@@ -159,12 +159,12 @@ case "${HOST}" in
         # git@ssh.dev.azure.com:v3/<org>/<project>/<repo>
         if ${__is_ssh}; then
             # Parse out the organization and project
-            if [[ "${CLONE_URL}" =~ ^[^@]+@[^:]+:v3/([^/]+)/([^/]+)/(.*) ]]; then
-                ORG="${BASH_REMATCH[1]}"
-                PROJECT=$(urldecode "${BASH_REMATCH[2]}")
-                REPO=$(urldecode "${BASH_REMATCH[3]%.git}")
-                TARGET_DIRECTORY_HOST="${HOST#ssh.}"
-                TARGET_DIRECTORY_SUFFIX="${ORG}/${PROJECT}/${REPO}"
+            if [[ "${__clone_url}" =~ ^[^@]+@[^:]+:v3/([^/]+)/([^/]+)/(.*) ]]; then
+                __org="${BASH_REMATCH[1]}"
+                __project=$(urldecode "${BASH_REMATCH[2]}")
+                __repo=$(urldecode "${BASH_REMATCH[3]%.git}")
+                __target_directory_host="${__host#ssh.}"
+                __target_directory_suffix="${__org}/${__project}/${__repo}"
             fi
         fi
         ;;
@@ -175,17 +175,17 @@ case "${HOST}" in
         # git@<host>:<org>/<repo>
         if ${__is_http}; then
             # Parse out the organization/user and project
-            if [[ "${CLONE_URL}" =~ ^https?://[^/]+/([^/]+)/([^/]+)(\.git)?/?$ ]]; then
-                USER="${BASH_REMATCH[1]}"
-                REPO=$(urldecode "${BASH_REMATCH[2]%.git}")
-                TARGET_DIRECTORY_SUFFIX="${USER}/${REPO}"
+            if [[ "${__clone_url}" =~ ^https?://[^/]+/([^/]+)/([^/]+)(\.git)?/?$ ]]; then
+                __user="${BASH_REMATCH[1]}"
+                __repo=$(urldecode "${BASH_REMATCH[2]%.git}")
+                __target_directory_suffix="${__user}/${__repo}"
             fi
         elif ${__is_ssh}; then
             # Parse out the organization/user and project
-            if [[ "${CLONE_URL}" =~ ^[^@]+@[^:]+:([^/]+)/([^/]+)(\.git)?$ ]]; then
-                USER="${BASH_REMATCH[1]}"
-                REPO=$(urldecode "${BASH_REMATCH[2]%.git}")
-                TARGET_DIRECTORY_SUFFIX="${USER}/${REPO}"
+            if [[ "${__clone_url}" =~ ^[^@]+@[^:]+:([^/]+)/([^/]+)(\.git)?$ ]]; then
+                __user="${BASH_REMATCH[1]}"
+                __repo=$(urldecode "${BASH_REMATCH[2]%.git}")
+                __target_directory_suffix="${__user}/${__repo}"
             fi
         fi
         ;;
@@ -194,57 +194,57 @@ case "${HOST}" in
         # git@bitbucket.org:<org>/<repo>.git
         if ${__is_http}; then
             # Parse out the organization/user and project
-            if [[ "${CLONE_URL}" =~ ^https?://[^/]+/([^/]+)/([^/]+)\.git$ ]]; then
-                USER="${BASH_REMATCH[1]}"
-                REPO=$(urldecode "${BASH_REMATCH[2]%.git}")
-                TARGET_DIRECTORY_SUFFIX="${USER}/${REPO}"
+            if [[ "${__clone_url}" =~ ^https?://[^/]+/([^/]+)/([^/]+)\.git$ ]]; then
+                __user="${BASH_REMATCH[1]}"
+                __repo=$(urldecode "${BASH_REMATCH[2]%.git}")
+                __target_directory_suffix="${__user}/${__repo}"
             fi
         elif ${__is_ssh}; then
             # Parse out the organization/user and project
-            if [[ "${CLONE_URL}" =~ ^[^@]+@[^:]+:([^/]+)/([^/]+)\.git$ ]]; then
-                USER="${BASH_REMATCH[1]}"
-                REPO=$(urldecode "${BASH_REMATCH[2]%.git}")
-                TARGET_DIRECTORY_SUFFIX="${USER}/${REPO}"
+            if [[ "${__clone_url}" =~ ^[^@]+@[^:]+:([^/]+)/([^/]+)\.git$ ]]; then
+                __user="${BASH_REMATCH[1]}"
+                __repo=$(urldecode "${BASH_REMATCH[2]%.git}")
+                __target_directory_suffix="${__user}/${__repo}"
             fi
         fi
         ;;
     *)
-        echo "ERROR: unsupported host: ${HOST}" >&2
+        echo "ERROR: unsupported host: ${__host}" >&2
         return 0
         ;;
 esac
 
 # Check if we were able to set the target suffix
-if [[ -z "${TARGET_DIRECTORY_SUFFIX}" ]]; then
-    echo "ERROR: skipping: unable to parse '${HOST}' clone URL: ${CLONE_URL}" >&2
+if [[ -z "${__target_directory_suffix}" ]]; then
+    echo "ERROR: skipping: unable to parse '${__host}' clone URL: ${__clone_url}" >&2
     return 0
 fi
 
 # Build the target directory
-TARGET_DIRECTORY+="${TARGET_DIRECTORY_BASE}/"
-TARGET_DIRECTORY+="${TARGET_DIRECTORY_HOST}/"
-TARGET_DIRECTORY+="${TARGET_DIRECTORY_SUFFIX}"
+__target_directory+="${__target_directory_base}/"
+__target_directory+="${__target_directory_host}/"
+__target_directory+="${__target_directory_suffix}"
 
-debug "TARGET_DIRECTORY: ${TARGET_DIRECTORY}"
+debug "__target_directory: ${__target_directory}"
 
 # Check if the target directory exists and is not empty
 if [[
-    -d "${TARGET_DIRECTORY}"
-    && -n "$(ls -A "${TARGET_DIRECTORY}")"
+    -d "${__target_directory}"
+    && -n "$(ls -A "${__target_directory}")"
 ]]; then
     # Ignore for now
-    echo "WARNING: Target directory exists and is not empty: ${TARGET_DIRECTORY}" >&2
+    echo "WARNING: Target directory exists and is not empty: ${__target_directory}" >&2
     echo "WARNING: To clone to this directory, manually run the following command:" >&2
-    echo "WARNING:   git clone '${CLONE_URL}' '${TARGET_DIRECTORY}'" >&2
+    echo "WARNING:   git clone '${__clone_url}' '${__target_directory}'" >&2
     return 1
 fi
 
-[[ "${GIT_TEST}" =~ ^"1"|"true"$ ]] && echo "TARGET_DIRECTORY: ${TARGET_DIRECTORY}"
+[[ "${GIT_TEST}" =~ ^"1"|"true"$ ]] && echo "__target_directory: ${__target_directory}"
 
 # If we made it this far, then we have a full target path. If we had to use
 # the default base directory, then warn the user
 if ${__using_default_base}; then
-    echo "WARNING: git.gitDirectory not set, using default git directory: ${TARGET_DIRECTORY_BASE}" >&2
+    echo "WARNING: git.gitDirectory not set, using default git directory: ${__target_directory_base}" >&2
     # Give them time to cancel
     printf "..."
     sleep 1
@@ -256,11 +256,11 @@ if ${__using_default_base}; then
 fi
 
 # Make sure the target directory exists
-mkdir -p "${TARGET_DIRECTORY}" 2>/dev/null
+mkdir -p "${__target_directory}" 2>/dev/null
 if [[ $? -ne 0 ]]; then
-    echo "ERROR: Unable to create target directory: ${TARGET_DIRECTORY}" >&2
+    echo "ERROR: Unable to create target directory: ${__target_directory}" >&2
     return 1
 fi
 
 # Update the git subcommand args
-GIT_SUBCOMMAND_ARGS+=("${TARGET_DIRECTORY}")
+GIT_SUBCOMMAND_ARGS+=("${__target_directory}")

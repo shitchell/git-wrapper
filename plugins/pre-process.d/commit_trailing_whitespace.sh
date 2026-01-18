@@ -16,88 +16,87 @@ if ! command -v file &>/dev/null; then
 fi
 
 # Get the list of staged files
-readarray -t staged_files < <(
+readarray -t __staged_files < <(
     "${GIT}" "${GIT_ARGS[@]}" diff --staged --name-only --diff-filter=ACMR
 )
 
-if [[ ${#staged_files[@]} -eq 0 ]]; then
+if [[ ${#__staged_files[@]} -eq 0 ]]; then
     return 0
 fi
 
-debug "checking ${#staged_files[@]} files for trailing whitespace"
+debug "checking ${#__staged_files[@]} files for trailing whitespace"
 
 # Get the root of the repo
-GIT_ROOT=$("${GIT}" "${GIT_ARGS[@]}" rev-parse --show-toplevel)
+__git_root=$("${GIT}" "${GIT_ARGS[@]}" rev-parse --show-toplevel)
 
 # Array to store files with trailing whitespace
-declare -a files_with_whitespace=()
+declare -a __files_with_whitespace=()
 
 # Check each staged file
-echo "checking ${#staged_files[@]} for whitespace"
-for staged_file in "${staged_files[@]}"; do
+for __staged_file in "${__staged_files[@]}"; do
     # Get the absolute path of the file
-    abs_path="${GIT_ROOT}/${staged_file}"
+    __abs_path="${__git_root}/${__staged_file}"
 
     # Skip if file doesn't exist
-    if [[ ! -f "${abs_path}" ]]; then
+    if [[ ! -f "${__abs_path}" ]]; then
         continue
     fi
 
     # Check if it's a text file using mime type
-    mime_type=$(file --brief --mime-type "${abs_path}")
-    debug "checking ${staged_file} (mime: ${mime_type})"
+    __mime_type=$(file --brief --mime-type "${__abs_path}")
+    debug "checking ${__staged_file} (mime: ${__mime_type})"
 
     # Check if it's a text file (includes JSON, Python, CSV, etc.)
-    if [[ "${mime_type}" =~ ^text/ ]] || \
-       [[ "${mime_type}" == "application/json" ]] || \
-       [[ "${mime_type}" == "application/javascript" ]] || \
-       [[ "${mime_type}" == "application/x-python" ]] || \
-       [[ "${mime_type}" == "application/x-shellscript" ]] || \
-       [[ "${mime_type}" == "application/x-ruby" ]] || \
-       [[ "${mime_type}" == "application/x-perl" ]] || \
-       [[ "${mime_type}" == "application/xml" ]] || \
-       [[ "${mime_type}" == "application/x-yaml" ]] || \
-       [[ "${mime_type}" =~ ^application/.*\+xml$ ]] || \
-       [[ "${mime_type}" =~ ^application/.*\+json$ ]]; then
+    if [[ "${__mime_type}" =~ ^text/ ]] || \
+       [[ "${__mime_type}" == "application/json" ]] || \
+       [[ "${__mime_type}" == "application/javascript" ]] || \
+       [[ "${__mime_type}" == "application/x-python" ]] || \
+       [[ "${__mime_type}" == "application/x-shellscript" ]] || \
+       [[ "${__mime_type}" == "application/x-ruby" ]] || \
+       [[ "${__mime_type}" == "application/x-perl" ]] || \
+       [[ "${__mime_type}" == "application/xml" ]] || \
+       [[ "${__mime_type}" == "application/x-yaml" ]] || \
+       [[ "${__mime_type}" =~ ^application/.*\+xml$ ]] || \
+       [[ "${__mime_type}" =~ ^application/.*\+json$ ]]; then
 
         # Check for trailing whitespace
-        if grep -q '[[:space:]]$' "${abs_path}"; then
-            debug "found trailing whitespace in ${staged_file}"
-            files_with_whitespace+=("${staged_file}")
+        if grep -q '[[:space:]]$' "${__abs_path}"; then
+            debug "found trailing whitespace in ${__staged_file}"
+            __files_with_whitespace+=("${__staged_file}")
         else
-            debug "no trailing whitespace in ${staged_file}"
+            debug "no trailing whitespace in ${__staged_file}"
         fi
     fi
 done
 
 # If we found files with trailing whitespace, fail and provide fix commands
-if [[ ${#files_with_whitespace[@]} -gt 0 ]]; then
+if [[ ${#__files_with_whitespace[@]} -gt 0 ]]; then
     echo ""
     echo "ERROR: Found trailing whitespace in the following files:"
     echo ""
 
-    for file in "${files_with_whitespace[@]}"; do
-        echo "  - ${file}"
+    for __file in "${__files_with_whitespace[@]}"; do
+        echo "  - ${__file}"
     done
 
     echo ""
     echo "To fix trailing whitespace, run the following commands:"
     echo ""
 
-    for file in "${files_with_whitespace[@]}"; do
+    for __file in "${__files_with_whitespace[@]}"; do
         # Print sed command to remove trailing whitespace
-        echo "  sed -i 's/[[:space:]]*$//' '${GIT_ROOT}/${file}'"
+        echo "  sed -i 's/[[:space:]]*$//' '${__git_root}/${__file}'"
     done
 
     echo ""
     echo "Or fix all at once with:"
     echo ""
     echo "  sed -i 's/[[:space:]]*$//' \\"
-    for i in "${!files_with_whitespace[@]}"; do
-        if [[ $i -eq $((${#files_with_whitespace[@]} - 1)) ]]; then
-            echo "    '${GIT_ROOT}/${files_with_whitespace[$i]}'"
+    for __i in "${!__files_with_whitespace[@]}"; do
+        if [[ ${__i} -eq $((${#__files_with_whitespace[@]} - 1)) ]]; then
+            echo "    '${__git_root}/${__files_with_whitespace[${__i}]}'"
         else
-            echo "    '${GIT_ROOT}/${files_with_whitespace[$i]}' \\"
+            echo "    '${__git_root}/${__files_with_whitespace[${__i}]}' \\"
         fi
     done
     echo ""

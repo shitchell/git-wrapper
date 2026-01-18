@@ -36,6 +36,12 @@ for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
         fi
 
         # Log the --no-verify usage
+        __log_dir="${HOME}/.cache/git-wrapper"
+        __log_file="${__log_dir}/noverify.log"
+        if [[ ! -d "${__log_dir}" ]]; then
+            mkdir -p "${__log_dir}"
+            chmod 700 "${__log_dir}"
+        fi
         {
             date
             echo "Action: ${__action}"
@@ -48,7 +54,8 @@ for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
             echo ""
             echo "---"
             echo ""
-        } >> /tmp/noverify.log
+        } >> "${__log_file}"
+        chmod 600 "${__log_file}" 2>/dev/null
 
         return ${__exit_code}
     fi

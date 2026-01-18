@@ -26,7 +26,7 @@ fi
 __wip_regex=$(plugin-option --default='(#|//|\*).*\bWIP\b' regex)
 debug "using regex /${__wip_regex}/ against ${#__committed_files[@]} files"
 readarray -t __wips < <(
-    "${GIT}" -c color.ui=never "${GIT_ARGS[@]}" grep -P "${__wip_regex}" -- "${__committed_files[@]}" \
+    "${GIT}" "${GIT_ARGS[@]}" -c color.ui=never grep -P "${__wip_regex}" -- "${__committed_files[@]}" \
         | grep -vE '^(Binary|diff|index) file'
 )
 

@@ -49,13 +49,19 @@ Set commit author and GPG options when run inside Claude Code (when `CLAUDECODE`
 
 ### commit_noverify.sh
 
-Block `--no-verify` from bypassing git hooks.
+Warn or block `--no-verify` usage. Logs all bypass attempts to `~/.cache/git-wrapper/noverify.log`.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `strict` | bool | `false` | Block `--no-verify` when true |
+| `mode` | string | `warn` | `warn` to show warning, `strict` to block commit |
 
 ![No-verify blocked](../screenshots/noverify.png)
+
+### commit_trailing_whitespace.sh
+
+Check staged files for trailing whitespace and block commit if found. Provides sed commands to fix.
+
+Detects text files via MIME type (text/*, application/json, application/x-python, etc.).
 
 ### clone_organize_dirs.sh
 

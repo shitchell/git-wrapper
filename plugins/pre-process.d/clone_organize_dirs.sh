@@ -24,6 +24,12 @@
 #   $ git clone https://github.com/myorg/myrepo.git ./foo-bar
 
 debug "_IN_SCRIPT = ${_IN_SCRIPT}"
+
+# If CLAUDECODE environment variable exists, force organize
+if [[ -n "${CLAUDECODE}" ]]; then
+    GIT_ARGS+=(-c wrapper.plugin.clone_organize_dirs.force=true)
+fi
+
 if [[ "${_IN_SCRIPT}" == "true" ]]; then
     __force_organize=$(plugin-option --bool --default=false force)
     if ! ${__force_organize}; then

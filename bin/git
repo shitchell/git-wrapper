@@ -219,7 +219,10 @@ function run-plugin() {
     fi
 
     # Extract the plugin name (filename without extension) for plugin-option
-    __PLUGIN_NAME=$(basename "${__plugin_path}" .sh)
+    # Resolve symlinks so symlinked plugins share config with their target
+    local -- __plugin_real_path
+    __plugin_real_path=$(realpath "${__plugin_path}")
+    __PLUGIN_NAME=$(basename "${__plugin_real_path}" .sh)
     debug "plugin name: ${__PLUGIN_NAME}"
 
     # Check if plugin is enabled (default: true)

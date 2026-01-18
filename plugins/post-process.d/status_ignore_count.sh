@@ -15,13 +15,13 @@ for arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
     [[ "${arg}" == "--ignored" ]] && __using_ignored=true && break
 done
 
-"${GIT}" status --ignored --porcelain \
+"${GIT}" "${GIT_ARGS[@]}" status --ignored --porcelain \
     | awk -v green="${C_GREEN}" -v rst="${S_RESET}" -v using_ignored="${__using_ignored}" '
         # If the filepath ends with a "/", then it is a directory
         /^!!.*\/$/ {
             dirs+=1
         }
-        
+
         # If the filepath does not end with a "/", then it is a file
         /^!!.*[^\/]$/ {
             files+=1

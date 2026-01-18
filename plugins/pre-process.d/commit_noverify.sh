@@ -1,30 +1,55 @@
 #!/usr/bin/env bash
 #
-# Block --no-verify when strict mode is enabled.
-#
-# Prevents bypassing pre-commit hooks. Useful for enforcing code quality
-# checks in repos where hooks should not be skipped.
+# Warn or block --no-verify usage
 #
 # Config:
 #   wrapper.plugin.commit_noverify.enabled (bool): default true
-#   wrapper.plugin.commit_noverify.strict (bool): default false
-#
+#   wrapper.plugin.commit_noverify.mode (string): "warn" or "strict" (default: warn)
+#     - warn: print warning but allow commit
+#     - strict: block the commit
 
-__strict=$(plugin-option --bool --default=false strict)
-
-if ! ${__strict}; then
-    return 0
-fi
+__mode=$(plugin-option --default=warn mode)
 
 # Check for --no-verify in args
 for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
     if [[ "${__arg}" == "--no-verify" || "${__arg}" == "-n" ]]; then
-        echo ""
-        echo "┌─────────────────────────────────────────────────────────────────┐"
-        echo "│  --no-verify is disabled                                        │"
-        echo "└─────────────────────────────────────────────────────────────────┘"
-        echo ""
-        RUN_GIT_CMD=false
-        return 1
+        if [[ "${__mode}" == "strict" ]]; then
+            echo ""
+            echo "┌─────────────────────────────────────────────────────────────────┐"
+            echo "│  --no-verify is disabled                                        │"
+            echo "└─────────────────────────────────────────────────────────────────┘"
+            echo ""
+            echo "  If you have issues with hooks, escalate to the human rather"
+            echo "  than bypassing them."
+            echo ""
+            __action="BLOCKED"
+            __exit_code=1
+        else
+            echo ""
+            echo "${S_DIM}Warning: you have bypassed commit hooks. You should report this"
+            echo "action for review and discussion why the hook warranted bypassing."
+            echo "Otherwise, you should consider resetting your commit and retrying in"
+            echo "accordance with the established procedures of this repository.${S_RESET}"
+            echo ""
+            __action="WARNING"
+            __exit_code=0
+        fi
+
+        # Log the --no-verify usage
+        {
+            date
+            echo "Action: ${__action}"
+            echo "User: ${USER}"
+            echo "PWD: ${PWD}"
+            echo "Command: git ${GIT_SUBCOMMAND} ${GIT_SUBCOMMAND_ARGS[*]}"
+            echo ""
+            echo "Environment:"
+            declare -p CLAUDECODE CLAUDE_CODE 2>/dev/null || echo "(no claude env)"
+            echo ""
+            echo "---"
+            echo ""
+        } >> /tmp/noverify.log
+
+        return ${__exit_code}
     fi
 done

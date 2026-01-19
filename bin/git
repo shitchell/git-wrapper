@@ -69,33 +69,81 @@ __GIT_WRAPPER_PATH=$(realpath "${0}")
 (( __GIT_WRAPPER_DEPTH++ ))
 export __GIT_WRAPPER_DEPTH
 
-if [[ ${__GIT_WRAPPER_DEPTH} -gt 30 ]]; then
-    echo "ERROR: git wrapper recursion detected (depth: ${__GIT_WRAPPER_DEPTH})" >&2
+# Check for recursion and print debug info if threshold exceeded
+# Usage: __check_recursion [threshold]
+# Default threshold: 50
+function __check_recursion() {
+    local -i __threshold=${1:-50}
+    local -i __pid
+
+    [[ ${__GIT_WRAPPER_DEPTH} -le ${__threshold} ]] && return 0
+
+    echo "ERROR: git wrapper recursion detected (depth: ${__GIT_WRAPPER_DEPTH}, threshold: ${__threshold})" >&2
     echo "ERROR: this usually means a plugin is calling 'git' instead of '\"\${GIT}\"'" >&2
     echo "" >&2
-    echo "=== Debug Info ===" >&2
+
+    echo "=== Paths ===" >&2
+    echo "Wrapper:    ${__GIT_WRAPPER_PATH}" >&2
+    echo "Real git:   ${GIT:-<not yet set>}" >&2
+    echo "Script dir: ${SCRIPT_DIR:-<not yet set>}" >&2
+    echo "" >&2
+
+    echo "=== Invocation ===" >&2
     echo "Command: $0 $*" >&2
     echo "PWD: ${PWD}" >&2
-    echo "GIT: ${GIT:-<not yet set>}" >&2
-    [[ -n "${__PLUGIN_NAME}" ]] && echo "Plugin: ${__PLUGIN_NAME}" >&2
+    if [[ -n "${__PLUGIN_NAME}" ]]; then
+        echo "Plugin: ${__PLUGIN_NAME}" >&2
+    fi
     echo "" >&2
+
+    echo "=== Arguments ===" >&2
+    echo "GIT_ARGS (${#GIT_ARGS[@]}):$(printf " '%s'" "${GIT_ARGS[@]}")" >&2
+    echo "GIT_SUBCOMMAND: ${GIT_SUBCOMMAND:-<none>}" >&2
+    echo "GIT_SUBCOMMAND_ARGS (${#GIT_SUBCOMMAND_ARGS[@]}):$(printf " '%s'" "${GIT_SUBCOMMAND_ARGS[@]}")" >&2
+    echo "" >&2
+
+    echo "=== Extensions ===" >&2
+    echo "Pre-process (${#EXTENSIONS_PRE[@]}):$(printf " '%s'" "${EXTENSIONS_PRE[@]}")" >&2
+    echo "Post-process (${#EXTENSIONS_POST[@]}):$(printf " '%s'" "${EXTENSIONS_POST[@]}")" >&2
+    echo "" >&2
+
     echo "=== Process Tree ===" >&2
-    pstree -sap $$ 2>/dev/null >&2 || pstree -sa $$ 2>/dev/null >&2 || ps f >&2
+    if command -v pstree &>/dev/null; then
+        # -s: show parents, -a: show args, -p: show pids, -l: long lines
+        pstree -s -a -p -l $$ 2>/dev/null >&2 || ps -o pid,ppid,args -p $$ >&2
+    else
+        # Walk up the process tree manually
+        __pid=$$
+        while [[ ${__pid} -gt 1 ]]; do
+            ps -o pid=,ppid=,args= -p "${__pid}" 2>/dev/null >&2
+            __pid=$(ps -o ppid= -p "${__pid}" 2>/dev/null | tr -d ' ')
+            [[ -z "${__pid}" ]] && break
+        done
+    fi
     echo "" >&2
+
     echo "=== Wrapper Environment ===" >&2
     env | grep -E '^(GIT_|__GIT_|__PLUGIN_|DEBUG|CLAUDECODE)' >&2 || echo "(none)" >&2
+
     exit 1
-fi
+}
+
+# Early check - catch runaway recursion before we do any work
+__check_recursion 30
 
 
 ## Find `git` ##################################################################
 
-# Find the first git executable that isn't this script
+# Find the first git executable that isn't this script (or another wrapper)
 while read -r filepath; do
     # Get the real path to the executable
     filepath_real=$(realpath "${filepath}")
     # Ensure the file isn't this script
     [[ "${filepath_real}" == "${__GIT_WRAPPER_PATH}" ]] && continue
+    # Skip scripts (real git is a binary, not a shebang script)
+    # This prevents finding another copy of the wrapper on PATH
+    IFS= read -rn 2 __shebang < "${filepath_real}"
+    [[ "${__shebang}" == "#!" ]] && continue
     GIT="${filepath_real}"
     break
 done < <(which -a git)
@@ -657,6 +705,9 @@ shopt -u nullglob
 
 debug "pre-process extensions: ${EXTENSIONS_PRE[*]}"
 debug "post-process extensions: ${EXTENSIONS_POST[*]}"
+
+# Second recursion check - we now have full context for debugging
+__check_recursion 20
 
 
 ## Pre-process #################################################################

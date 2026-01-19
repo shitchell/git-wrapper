@@ -329,7 +329,7 @@ fi' > invalid.sh
 
 @test "commit_noverify: blocks --no-verify when strict" {
     cd "$TEST_TEMP"
-    "$REAL_GIT" config wrapper.plugin.commit_noverify.strict true
+    "$REAL_GIT" config wrapper.plugin.commit_noverify.mode strict
     echo "test" > test.txt
     "$REAL_GIT" add test.txt
 

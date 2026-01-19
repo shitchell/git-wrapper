@@ -177,6 +177,7 @@ cp plugins/pre-process.d/commit_bashsyntaxcheck.sh ~/.git.d/pre-process.d/
 | `clone_organize_dirs.sh` | Organize repos by host/user/repo |
 | `commit_todo_check.sh` | Warn about TODOs in committed code |
 | `commit_wip_check.sh` | Check for WIP markers |
+| `commit_trailing_whitespace.sh` | Check for trailing whitespace before commit |
 | `status_ignore_count.sh` | Show ignored file count |
 | `push_jedi.sh` | Bless force pushes |
 

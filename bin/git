@@ -7,10 +7,9 @@
 # subcommands.
 #
 # Exit codes:
-# - 0: success
-# - 1: git command failed
-# - 2: pre-process failed
-# - 3: post-process failed
+# - 0: git command and all plugins succeeded
+# - non-zero: git command exit code if git failed (always takes priority)
+# - non-zero: plugin exit code if exitOnFailure is set and a plugin failed
 #
 #
 # Environment variables:
@@ -744,9 +743,8 @@ if [[ "${RUN_GIT_CMD}" == "true" ]]; then
     debug "git command exited with ${GIT_EXIT_CODE}"
     if [[ ${GIT_EXIT_CODE} -ne 0 ]]; then
         debug "git command failed"
-        if ${EXIT_ON_FAILURE}; then
-            exit ${GIT_EXIT_CODE}
-        fi
+        # Always exit on git failure - git exit code takes priority
+        exit ${GIT_EXIT_CODE}
     fi
 fi
 

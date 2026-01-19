@@ -103,3 +103,21 @@ Show count of ignored files after `git status`. Only runs in interactive session
 Print a blessing after force pushes (`--force`, `-f`, `--force-with-lease`, `--force-if-includes`). And also with you.
 
 ![May the force be with you](../screenshots/push-jedi.png)
+
+---
+
+## Color Variables
+
+Plugins should use the wrapper's color variables for any colored output. These are automatically configured based on `color.ui` and terminal detection—set when colors are appropriate, unset when output is piped or colors are disabled.
+
+Since sourced plugins cannot detect whether the wrapper's output is being piped, using these variables ensures your plugin's colors follow git's color behavior automatically.
+
+| Variable | Description |
+|----------|-------------|
+| `C_RED`, `C_GREEN`, `C_YELLOW`, etc. | Foreground colors |
+| `S_BOLD`, `S_DIM`, `S_RESET` | Style modifiers |
+
+```bash
+# Variables are empty when colors disabled, so this is safe
+echo "${C_RED}Error:${S_RESET} something went wrong"
+```

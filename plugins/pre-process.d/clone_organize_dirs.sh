@@ -12,8 +12,8 @@
 # - `git` is called from within a script (so as to not break installation
 #    scripts that expect the repo to be cloned into the current directory).
 #
-# If `wrapper.forceOrganize` is set to true, the above goes out the window, and
-# this plugin will ALWAYS organize a cloned repo.
+# If `wrapper.plugin.clone_organize_dirs.force` is set to true, the above goes
+# out the window, and this plugin will ALWAYS organize a cloned repo.
 #
 # Examples:
 #

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install git-wrapper with XDG Base Directory compliance
+# Install git-wrapper
 #
 # Installs:
 #   - Wrapper script to ~/.local/bin/git (or $GIT_WRAPPER_BIN)
@@ -20,10 +20,6 @@ set -euo pipefail
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# XDG defaults
-XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
-XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
 
 # Installation defaults
 BIN_DIR="${GIT_WRAPPER_BIN:-${HOME}/.local/bin}"
@@ -45,11 +41,11 @@ usage() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Install git-wrapper with XDG Base Directory compliance.
+Install git-wrapper.
 
 Options:
     --bin-dir DIR       Install wrapper to DIR (default: ~/.local/bin)
-    --config-dir DIR    Install plugins to DIR (default: \~/.git.d)
+    --config-dir DIR    Install plugins to DIR (default: ~/.git.d)
     --with-plugins      Copy sample plugins to config directory
     --no-config         Skip setting git config for scriptDir
     --dry-run           Show what would be done without doing it
@@ -59,7 +55,6 @@ Options:
 Environment variables:
     GIT_WRAPPER_BIN     Override default bin directory
     GIT_WRAPPER_CONFIG  Override default config directory
-    XDG_CONFIG_HOME     XDG config directory (default: ~/.config)
 
 Examples:
     $(basename "$0")                      # Standard install
@@ -206,8 +201,27 @@ fi
 echo ""
 log "Installation complete!"
 echo ""
-echo "Make sure ${C_CYAN}${BIN_DIR}${C_RESET} is in your PATH (before /usr/bin)."
-echo ""
+
+# Check if BIN_DIR is in PATH
+if ! ${DRY_RUN}; then
+    if [[ ":${PATH}:" == *":${BIN_DIR}:"* ]]; then
+        # Check if it comes before /usr/bin
+        __bin_pos=$(echo "${PATH}" | tr ':' '\n' | grep -n "^${BIN_DIR}$" | cut -d: -f1 | head -1)
+        __usr_pos=$(echo "${PATH}" | tr ':' '\n' | grep -n "^/usr/bin$" | cut -d: -f1 | head -1)
+        if [[ -n "${__bin_pos}" && -n "${__usr_pos}" && ${__bin_pos} -lt ${__usr_pos} ]]; then
+            echo "${C_GREEN}✓${C_RESET} ${C_CYAN}${BIN_DIR}${C_RESET} is in PATH (before /usr/bin)"
+        elif [[ -n "${__bin_pos}" ]]; then
+            warn "${BIN_DIR} is in PATH but AFTER /usr/bin"
+            echo "  Move it earlier in PATH to use the wrapper by default."
+        fi
+    else
+        warn "${BIN_DIR} is not in your PATH"
+        echo "  Add it to your shell config (e.g., ~/.bashrc):"
+        echo "    ${C_CYAN}export PATH=\"${BIN_DIR}:\${PATH}\"${C_RESET}"
+    fi
+    echo ""
+fi
+
 echo "To add plugins, place executable scripts in:"
 echo "    ${C_CYAN}${CONFIG_DIR}/pre-process.d/${C_RESET}   (run before git commands)"
 echo "    ${C_CYAN}${CONFIG_DIR}/post-process.d/${C_RESET}  (run after git commands)"

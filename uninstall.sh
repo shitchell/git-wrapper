@@ -22,9 +22,6 @@ set -euo pipefail
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# XDG defaults
-XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
-
 # Installation defaults
 BIN_DIR="${GIT_WRAPPER_BIN:-${HOME}/.local/bin}"
 CONFIG_DIR="${GIT_WRAPPER_CONFIG:-${HOME}/.git.d}"
@@ -51,7 +48,7 @@ Uninstall git-wrapper.
 
 Options:
     --bin-dir DIR       Look for wrapper in DIR (default: ~/.local/bin)
-    --config-dir DIR    Plugin directory location (default: \~/.git.d)
+    --config-dir DIR    Plugin directory location (default: ~/.git.d)
     --remove-config     Also remove the config/plugins directory
     --keep-git-config   Don't remove wrapper.* git config entries
     --dry-run           Show what would be done without doing it
@@ -61,7 +58,6 @@ Options:
 Environment variables:
     GIT_WRAPPER_BIN     Override default bin directory
     GIT_WRAPPER_CONFIG  Override default config directory
-    XDG_CONFIG_HOME     XDG config directory (default: ~/.config)
 EOF
 }
 

@@ -439,8 +439,8 @@ fi' > invalid.sh
     CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
 
     run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'https://github.com/user/repo.git'"
-    [[ "$output" == *"HOST: github.com"* ]]
-    [[ "$output" == *"TARGET_DIRECTORY:"*"/github.com/user/repo"* ]]
+    [[ "$output" == *"__host: github.com"* ]]
+    [[ "$output" == *"__target_directory:"*"/github.com/user/repo"* ]]
 }
 
 @test "clone_organize_dirs: parses GitHub SSH URL" {
@@ -448,8 +448,8 @@ fi' > invalid.sh
     CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
 
     run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'git@github.com:user/repo.git'"
-    [[ "$output" == *"HOST: github.com"* ]]
-    [[ "$output" == *"TARGET_DIRECTORY:"*"/github.com/user/repo"* ]]
+    [[ "$output" == *"__host: github.com"* ]]
+    [[ "$output" == *"__target_directory:"*"/github.com/user/repo"* ]]
 }
 
 @test "clone_organize_dirs: parses Azure DevOps HTTPS URL" {
@@ -457,8 +457,8 @@ fi' > invalid.sh
     CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
 
     run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'https://dev.azure.com/myorg/myproject/_git/myrepo'"
-    [[ "$output" == *"HOST: dev.azure.com"* ]]
-    [[ "$output" == *"TARGET_DIRECTORY:"*"/dev.azure.com/myorg/myproject/myrepo"* ]]
+    [[ "$output" == *"__host: dev.azure.com"* ]]
+    [[ "$output" == *"__target_directory:"*"/dev.azure.com/myorg/myproject/myrepo"* ]]
 }
 
 @test "clone_organize_dirs: parses Azure DevOps SSH URL" {
@@ -466,8 +466,8 @@ fi' > invalid.sh
     CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
 
     run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'git@ssh.dev.azure.com:v3/myorg/myproject/myrepo'"
-    [[ "$output" == *"HOST: ssh.dev.azure.com"* ]]
-    [[ "$output" == *"TARGET_DIRECTORY:"*"/dev.azure.com/myorg/myproject/myrepo"* ]]
+    [[ "$output" == *"__host: ssh.dev.azure.com"* ]]
+    [[ "$output" == *"__target_directory:"*"/dev.azure.com/myorg/myproject/myrepo"* ]]
 }
 
 @test "clone_organize_dirs: exits when target directory specified" {
@@ -475,7 +475,7 @@ fi' > invalid.sh
     CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
 
     run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'https://github.com/user/repo.git' './custom-dir'"
-    [[ "$output" == *"TARGET_DIRECTORY is set to './custom-dir'"* ]]
+    [[ "$output" == *"__target_directory is set to './custom-dir'"* ]]
 }
 
 @test "clone_organize_dirs: warns on unsupported host" {

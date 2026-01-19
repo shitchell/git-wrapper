@@ -12,6 +12,13 @@
 if [[ -n "${CLAUDECODE}" ]]; then
     GIT_ARGS+=(-c user.name="Claude Code" -c user.email="noreply@anthropic.com")
 
+    # Check if gpg is available
+    if ! command -v gpg &>/dev/null; then
+        debug "gpg not installed, disabling signing"
+        GIT_ARGS+=(-c commit.gpgsign=false)
+        return 0
+    fi
+
     # Check if a GPG key exists for Claude Code
     claude_key_id=$(gpg --list-secret-keys --keyid-format=long "Claude Code <noreply@anthropic.com>" 2>/dev/null \
         | grep -E "^sec" | head -1 | sed 's/.*\/\([A-F0-9]*\) .*/\1/')

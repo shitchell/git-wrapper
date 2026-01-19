@@ -25,13 +25,13 @@
 # - DEBUG: If set to "true", show debug messages.
 #
 # Config Settings:
-# ~ wrapper.enabled: if set to false, the wrapper will pass the command through
+# - wrapper.enabled: if set to false, the wrapper will pass the command through
 #   to git without running any pre-/post-process scripts.
 # - wrapper.showScriptName: if set to true, the pre-/post-process script output
 #   will be prefixed with the name of the script that is being run.
-# ~ wrapper.scriptDir: the directory where the pre-/post-process scripts are
+# - wrapper.scriptDir: the directory where the pre-/post-process scripts are
 #   located. If not set, the default is ~/.git.d/
-# ~ wrapper.exitOnFailure: if set to true, the script will exit with the exit
+# - wrapper.exitOnFailure: if set to true, the script will exit with the exit
 #   code of the pre-/post-process scripts if they fail. if a pre-process script
 #   fails, the git command will not be run.
 # - wrapper.notifyOnModify: if set to true, a message will be shown when a

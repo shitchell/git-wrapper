@@ -73,7 +73,7 @@ fi
 # argument is the target directory)
 ## try to see if another extension has already determined the positional args
 GIT_POSITIONAL_ARGS=( "${GIT_POSITIONAL_ARGS[@]}" )
-if [[ -z "${GIT_POSITIONAL_ARGS[0]}" ]]; then
+if [[ ${#GIT_POSITIONAL_ARGS[@]} -eq 0 ]]; then
     ## determine the positional arguments
     GIT_POSITIONAL_ARGS=()
     for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do

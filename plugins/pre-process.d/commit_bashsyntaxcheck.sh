@@ -56,11 +56,7 @@ for __committed_file in "${__committed_files[@]}"; do
             __syntax_err=$(bash -n "${__abs_path}" 2>&1)
             if [[ -n "${__syntax_err}" ]]; then
                 echo "error"
-                if ${USE_COLOR}; then
-                    __start_color="\033[31m"
-                    __end_color="\033[0m"
-                fi
-                echo -e "${__start_color}${__syntax_err}${__end_color}" >&2
+                echo -e "${C_RED}${__syntax_err}${S_RESET}" >&2
                 return ${E_PRE_ERROR}
             else
                 echo "done"

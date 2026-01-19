@@ -78,14 +78,7 @@ if [[ ${#__python_files[@]} -gt 0 ]]; then
 
     if [[ ${__exit_code} -ne 0 ]]; then
         echo "error"
-        if ${USE_COLOR}; then
-            __start_color="\033[31m"
-            __end_color="\033[0m"
-        else
-            __start_color=""
-            __end_color=""
-        fi
-        echo -e "${__start_color}${__output}${__end_color}" | sed 's/^/    /' >&2
+        echo -e "${C_RED}${__output}${S_RESET}" | sed 's/^/    /' >&2
         if [[ "${__black_mode}" == "error" ]]; then
             return ${E_PRE_ERROR}
         fi

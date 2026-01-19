@@ -727,3 +727,127 @@ fi' > invalid.sh
     # Should NOT contain the blessing for regular push
     [[ "$output" != *"May the force be with you"* ]]
 }
+
+# =============================================================================
+# Fixture Tests: Plugin output and failure behavior
+# =============================================================================
+
+@test "fixture: test_plugin outputs to stdout and stderr" {
+    cd "$TEST_TEMP"
+
+    # Create a custom script dir with the test fixture
+    CUSTOM_SCRIPT_DIR="$TEST_TEMP/scripts"
+    mkdir -p "$CUSTOM_SCRIPT_DIR/pre-process.d"
+    cp "$FIXTURES_DIR/test_plugin.sh" "$CUSTOM_SCRIPT_DIR/pre-process.d/status_test.sh"
+
+    "$REAL_GIT" config wrapper.scriptDir "$CUSTOM_SCRIPT_DIR"
+
+    run "$WRAPPER_PATH" status
+    [[ "$output" == *"stdout from plugin"* ]]
+    [[ "$output" == *"stderr from plugin"* ]]
+}
+
+@test "fixture: failing_plugin with exitOnFailure returns code 100" {
+    cd "$TEST_TEMP"
+
+    # Create a custom script dir with the failing fixture
+    CUSTOM_SCRIPT_DIR="$TEST_TEMP/scripts"
+    mkdir -p "$CUSTOM_SCRIPT_DIR/pre-process.d"
+    cp "$FIXTURES_DIR/failing_plugin.sh" "$CUSTOM_SCRIPT_DIR/pre-process.d/status_fail.sh"
+
+    "$REAL_GIT" config wrapper.scriptDir "$CUSTOM_SCRIPT_DIR"
+    "$REAL_GIT" config wrapper.exitOnFailure true
+
+    run "$WRAPPER_PATH" status
+    # Plugin returns 1 (invalid), wrapper should remap to 100 (E_PRE_ERROR_INVALID_CODE)
+    [[ $status -eq 100 ]]
+}
+
+@test "fixture: failing_plugin without exitOnFailure continues" {
+    cd "$TEST_TEMP"
+
+    CUSTOM_SCRIPT_DIR="$TEST_TEMP/scripts"
+    mkdir -p "$CUSTOM_SCRIPT_DIR/pre-process.d"
+    cp "$FIXTURES_DIR/failing_plugin.sh" "$CUSTOM_SCRIPT_DIR/pre-process.d/status_fail.sh"
+
+    "$REAL_GIT" config wrapper.scriptDir "$CUSTOM_SCRIPT_DIR"
+    "$REAL_GIT" config wrapper.exitOnFailure false
+
+    run "$WRAPPER_PATH" status
+    # Without exitOnFailure, wrapper continues despite plugin failure
+    [[ $status -eq 0 ]]
+}
+
+@test "fixture: modify_output_plugin sets OUTPUT_MODIFIED" {
+    cd "$TEST_TEMP"
+
+    CUSTOM_SCRIPT_DIR="$TEST_TEMP/scripts"
+    mkdir -p "$CUSTOM_SCRIPT_DIR/post-process.d"
+    cp "$FIXTURES_DIR/modify_output_plugin.sh" "$CUSTOM_SCRIPT_DIR/post-process.d/status_modify.sh"
+
+    "$REAL_GIT" config wrapper.scriptDir "$CUSTOM_SCRIPT_DIR"
+    "$REAL_GIT" config wrapper.notifyOnModify true
+
+    run "$WRAPPER_PATH" status
+    [[ "$output" == *"output was modified"* ]]
+    [[ "$output" == *"output modified by post-process plugin"* ]]
+}
+
+# =============================================================================
+# Plugin: commit_trailing_whitespace
+# =============================================================================
+
+@test "commit_trailing_whitespace: passes files without trailing whitespace" {
+    cd "$TEST_TEMP"
+
+    # Create a file without trailing whitespace
+    echo "no trailing whitespace here" > clean.txt
+    "$REAL_GIT" add clean.txt
+
+    "$REAL_GIT" config wrapper.exitOnFailure true
+
+    run "$WRAPPER_PATH" commit -m "clean commit"
+    [[ $status -eq 0 ]]
+}
+
+@test "commit_trailing_whitespace: blocks files with trailing whitespace" {
+    cd "$TEST_TEMP"
+
+    # Create a file with trailing whitespace (space at end of line)
+    printf "trailing whitespace \nhere\n" > dirty.txt
+    "$REAL_GIT" add dirty.txt
+
+    "$REAL_GIT" config wrapper.exitOnFailure true
+
+    run "$WRAPPER_PATH" commit -m "dirty commit"
+    # Should fail with pre-process error
+    [[ $status -ne 0 ]]
+    [[ "$output" == *"trailing whitespace"* ]]
+}
+
+@test "commit_trailing_whitespace: provides sed fix command" {
+    cd "$TEST_TEMP"
+
+    printf "has trailing \n" > whitespace.txt
+    "$REAL_GIT" add whitespace.txt
+
+    "$REAL_GIT" config wrapper.exitOnFailure true
+
+    run "$WRAPPER_PATH" commit -m "whitespace commit"
+    [[ $status -ne 0 ]]
+    # Should suggest sed command to fix
+    [[ "$output" == *"sed"* ]]
+}
+
+@test "commit_trailing_whitespace: can be disabled" {
+    cd "$TEST_TEMP"
+
+    printf "trailing \n" > file.txt
+    "$REAL_GIT" add file.txt
+
+    "$REAL_GIT" config wrapper.plugin.commit_trailing_whitespace.enabled false
+    "$REAL_GIT" config wrapper.exitOnFailure true
+
+    run "$WRAPPER_PATH" commit -m "disabled whitespace check"
+    [[ $status -eq 0 ]]
+}

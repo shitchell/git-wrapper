@@ -101,7 +101,7 @@ if [[ ${#__files_with_whitespace[@]} -gt 0 ]]; then
     done
     echo ""
 
-    return 1
+    return ${E_PRE_ERROR}
 fi
 
 debug "no trailing whitespace found"

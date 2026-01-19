@@ -195,10 +195,17 @@ bats tests/git-wrapper.bats
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success |
-| 1 | Git command failed |
-| 2 | Pre-process plugin failed |
-| 3 | Post-process plugin failed |
+| 0 | Success (git and all plugins succeeded) |
+| 1-79 | Git exit code (git failure always takes priority) |
+| 80-99 | Pre-process plugin failed (custom code in range) |
+| 100 | Pre-process plugin failed (returned invalid code) |
+| 101-119 | Post-process plugin failed (custom code in range) |
+| 120 | Post-process plugin failed (returned invalid code) |
+| 128+ | Git exit code (fatal errors, signals) |
+
+**Note:** If git fails, its exit code always takes priority over plugin exit codes.
+Plugin exit code ranges (80-120) are chosen to not overlap with git's standard
+exit codes (1-79, 128+).
 
 ## License
 

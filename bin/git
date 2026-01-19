@@ -7,9 +7,16 @@
 # subcommands.
 #
 # Exit codes:
-# - 0: git command and all plugins succeeded
-# - non-zero: git command exit code if git failed (always takes priority)
-# - non-zero: plugin exit code if exitOnFailure is set and a plugin failed
+# - 0: success
+# - 1-79: git exit code (git failure always takes priority)
+# - 80-99: pre-process plugin failed (plugin returned code in valid range)
+# - 100: pre-process plugin failed (plugin returned invalid code)
+# - 101-119: post-process plugin failed (plugin returned code in valid range)
+# - 120: post-process plugin failed (plugin returned invalid code)
+# - 128+: git exit code (fatal errors, signals)
+#
+# Note: Git exit codes always take priority. Plugin ranges are chosen to not
+# overlap with git's standard exit codes.
 #
 #
 # Environment variables:
@@ -58,6 +65,22 @@
 
 __GIT_WRAPPER_VERSION="0.1.0"
 __GIT_WRAPPER_PATH=$(realpath "${0}")
+
+
+## Exit code ranges ############################################################
+# Plugin exit codes are mapped to these ranges to distinguish from git errors.
+# Plugins can return codes within their range for custom errors, or use
+# E_PRE_ERROR / E_POST_ERROR for generic failures.
+
+readonly E_PRE_ERROR_MIN=80
+readonly E_PRE_ERROR_MAX=99
+readonly E_PRE_ERROR_INVALID_CODE=100
+readonly E_PRE_ERROR=${E_PRE_ERROR_MIN}  # Alias for generic pre-process error
+
+readonly E_POST_ERROR_MIN=101
+readonly E_POST_ERROR_MAX=119
+readonly E_POST_ERROR_INVALID_CODE=120
+readonly E_POST_ERROR=${E_POST_ERROR_MIN}  # Alias for generic post-process error
 
 
 ## Fork bomb detection #########################################################
@@ -727,7 +750,11 @@ for filepath in "${EXTENSIONS_PRE[@]}"; do
     if [[ ${PRE_EXIT_CODE} -ne 0 ]]; then
         echo "pre-process script '${filename}' failed with exit code ${PRE_EXIT_CODE}" >&2
         if ${EXIT_ON_FAILURE}; then
-            exit ${PRE_EXIT_CODE}
+            if [[ ${PRE_EXIT_CODE} -ge ${E_PRE_ERROR_MIN} && ${PRE_EXIT_CODE} -le ${E_PRE_ERROR_MAX} ]]; then
+                exit ${PRE_EXIT_CODE}
+            else
+                exit ${E_PRE_ERROR_INVALID_CODE}
+            fi
         fi
     fi
 done
@@ -769,7 +796,11 @@ for filepath in "${EXTENSIONS_POST[@]}"; do
     if [[ ${POST_EXIT_CODE} -ne 0 ]]; then
         echo "post-process script '${filename}' failed with exit code ${POST_EXIT_CODE}" >&2
         if ${EXIT_ON_FAILURE}; then
-            exit ${POST_EXIT_CODE}
+            if [[ ${POST_EXIT_CODE} -ge ${E_POST_ERROR_MIN} && ${POST_EXIT_CODE} -le ${E_POST_ERROR_MAX} ]]; then
+                exit ${POST_EXIT_CODE}
+            else
+                exit ${E_POST_ERROR_INVALID_CODE}
+            fi
         fi
     fi
 done

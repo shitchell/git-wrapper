@@ -87,7 +87,7 @@ if [[ ${#__python_files[@]} -gt 0 ]]; then
         fi
         echo -e "${__start_color}${__output}${__end_color}" | sed 's/^/    /' >&2
         if [[ "${__black_mode}" == "error" ]]; then
-            return 1
+            return ${E_PRE_ERROR}
         fi
     else
         echo "done"

@@ -52,7 +52,7 @@ function urldecode() (
     fi
 
     if [[ -z "${string}" ]]; then
-        return 1
+        return ${E_PRE_ERROR}
     fi
 
     # This is perhaps a risky gambit, but since all escape characters must be
@@ -190,18 +190,18 @@ case "${__host}" in
         fi
         ;;
     "bitbucket.org")
-        # https://bitbucket.org/<org>/<repo>.git
-        # git@bitbucket.org:<org>/<repo>.git
+        # https://bitbucket.org/<org>/<repo>[.git]
+        # git@bitbucket.org:<org>/<repo>[.git]
         if ${__is_http}; then
             # Parse out the organization/user and project
-            if [[ "${__clone_url}" =~ ^https?://[^/]+/([^/]+)/([^/]+)\.git$ ]]; then
+            if [[ "${__clone_url}" =~ ^https?://[^/]+/([^/]+)/([^/]+)(\.git)?/?$ ]]; then
                 __user="${BASH_REMATCH[1]}"
                 __repo=$(urldecode "${BASH_REMATCH[2]%.git}")
                 __target_directory_suffix="${__user}/${__repo}"
             fi
         elif ${__is_ssh}; then
             # Parse out the organization/user and project
-            if [[ "${__clone_url}" =~ ^[^@]+@[^:]+:([^/]+)/([^/]+)\.git$ ]]; then
+            if [[ "${__clone_url}" =~ ^[^@]+@[^:]+:([^/]+)/([^/]+)(\.git)?$ ]]; then
                 __user="${BASH_REMATCH[1]}"
                 __repo=$(urldecode "${BASH_REMATCH[2]%.git}")
                 __target_directory_suffix="${__user}/${__repo}"
@@ -236,7 +236,7 @@ if [[
     echo "WARNING: Target directory exists and is not empty: ${__target_directory}" >&2
     echo "WARNING: To clone to this directory, manually run the following command:" >&2
     echo "WARNING:   git clone '${__clone_url}' '${__target_directory}'" >&2
-    return 1
+    return ${E_PRE_ERROR}
 fi
 
 [[ "${GIT_TEST}" =~ ^"1"|"true"$ ]] && echo "__target_directory: ${__target_directory}"
@@ -244,7 +244,7 @@ fi
 # If we made it this far, then we have a full target path. If we had to use
 # the default base directory, then warn the user
 if ${__using_default_base}; then
-    echo "WARNING: git.gitDirectory not set, using default git directory: ${__target_directory_base}" >&2
+    echo "WARNING: wrapper.plugin.clone_organize_dirs.basedir not set, using default: ${__target_directory_base}" >&2
     # Give them time to cancel
     printf "..."
     sleep 1
@@ -256,10 +256,9 @@ if ${__using_default_base}; then
 fi
 
 # Make sure the target directory exists
-mkdir -p "${__target_directory}" 2>/dev/null
-if [[ $? -ne 0 ]]; then
+if ! mkdir -p "${__target_directory}" 2>/dev/null; then
     echo "ERROR: Unable to create target directory: ${__target_directory}" >&2
-    return 1
+    return ${E_PRE_ERROR}
 fi
 
 # Update the git subcommand args

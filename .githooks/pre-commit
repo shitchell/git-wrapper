@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook for git-wrapper development
+#
+# Checks if bin/git is modified and reminds to bump version number
+
+if git diff --cached --name-only | grep -q '^bin/git$'; then
+    if ! git diff --cached bin/git | grep -q '__GIT_WRAPPER_VERSION='; then
+        echo "WARNING: bin/git modified but __GIT_WRAPPER_VERSION not updated"
+        echo "Consider bumping the version number."
+    fi
+fi

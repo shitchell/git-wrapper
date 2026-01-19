@@ -23,7 +23,7 @@ for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
             echo "  than bypassing them."
             echo ""
             __action="BLOCKED"
-            __exit_code=1
+            __exit_code=${E_PRE_ERROR}
         else
             echo ""
             echo "${S_DIM}Warning: you have bypassed commit hooks. You should report this"

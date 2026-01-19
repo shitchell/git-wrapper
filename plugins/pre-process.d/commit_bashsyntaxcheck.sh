@@ -61,7 +61,7 @@ for __committed_file in "${__committed_files[@]}"; do
                     __end_color="\033[0m"
                 fi
                 echo -e "${__start_color}${__syntax_err}${__end_color}" >&2
-                return 1
+                return ${E_PRE_ERROR}
             else
                 echo "done"
             fi

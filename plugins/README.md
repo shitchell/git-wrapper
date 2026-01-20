@@ -71,7 +71,7 @@ Organize cloned repos into `basedir/host/user/repo` structure.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `basedir` | string | `~/code/git` | Base directory for organized repos |
+| `basedir` | string | `~/git` | Base directory for organized repos |
 | `force` | bool | `false` | Organize even when called from scripts |
 
 ![Clone organize](../screenshots/clone-organize.png)

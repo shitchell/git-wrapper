@@ -86,7 +86,9 @@ Plugins are bash scripts placed in `~/.git.d/pre-process.d/` or `~/.git.d/post-p
 
 - `{subcommand}.sh` - anonymous plugin for a subcommand (e.g., `commit.sh`)
 - `{subcommand}_{name}.sh` - named plugin for a subcommand (e.g., `commit_lint.sh`)
-- `{number}_{name}.sh` - runs for all subcommands, ordered by number (e.g., `10_log.sh`)
+- `{number}_{name}.sh` - runs for all subcommands (e.g., `10_log.sh`)
+
+Plugins are discovered via glob patterns and run in glob order (alphabetical). For subcommand-specific plugins, `commit.sh` runs before `commit_lint.sh`. Numbered global plugins run after subcommand-specific ones, sorted alphabetically by filename (so `05_early.sh` runs before `10_log.sh`).
 
 ### Available Variables
 

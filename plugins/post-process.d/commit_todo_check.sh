@@ -24,6 +24,10 @@ fi
 
 # Find all instances of "TODO:" in those files, excluding binary files
 __todo_regex=$(plugin-option --default='\bTODO:' regex)
+if [[ -z "${__todo_regex}" ]]; then
+    warn "wrapper.plugin.commit_todo_check.regex is empty, skipping TODO check"
+    return 0
+fi
 debug "using regex /${__todo_regex}/ against ${#__committed_files[@]} files"
 readarray -t __todos < <(
     "${GIT}" "${GIT_ARGS[@]}" -c color.ui=never grep "${__todo_regex}" -- "${__committed_files[@]}" \

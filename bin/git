@@ -515,10 +515,11 @@ GIT_SUBCOMMAND=""
 while [[ ${#} -gt 0 ]]; do
     case ${1} in
         # Handle all options that take no arguments
-        -h | --help | --version | --html-path | --man-path | --info-path | \
+        -v | -h | --help | --version | --html-path | --man-path | --info-path | \
         -p | --paginate | -P | --no-pager | --no-replace-objects | --bare | \
         --literal-pathspecs | --glob-pathspecs | --noglob-pathspecs | \
-        --icase-pathspecs | --no-optional-locks | --no-renames | --exec-path*)
+        --icase-pathspecs | --no-optional-locks | --no-lazy-fetch | --no-advice | \
+        --no-renames | --exec-path*)
             debug "no arg: ${1}"
             GIT_ARGS+=("${1}")
             shift 1
@@ -526,7 +527,7 @@ while [[ ${#} -gt 0 ]]; do
 
         # Handle all options that optionally take an argument
         --git-dir* | --work-tree* | --namespace* | --super-prefix* | \
-        --config-env* | --list-cmds*)
+        --config-env* | --list-cmds* | --attr-source*)
             debug "arg optional: ${1}"
             # Determine if the argument contains an equals sign
             if [[ "${1}" =~ = ]]; then
@@ -680,7 +681,6 @@ OUTPUT_MODIFIED=false  # plugins can set this to true if they modify git output
 
 
 ## Find extensions #############################################################
-__extensions=()
 EXTENSIONS_PRE=()
 EXTENSIONS_POST=()
 
@@ -688,35 +688,33 @@ EXTENSIONS_POST=()
 SCRIPT_DIR=$(wrapper-option --default="${HOME}/.git.d" scriptDir)
 debug "script directory: ${SCRIPT_DIR}"
 
-shopt -s nullglob  # don't fail if glob patterns don't match anything
-
-# Find pre-process extensions
-__extensions=(
-  "${SCRIPT_DIR}/pre-process.d/${GIT_SUBCOMMAND,,}.sh"
-  "${SCRIPT_DIR}/pre-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
-  "${SCRIPT_DIR}/pre-process.d/"[0-9]*.sh
+# Find pre-process extensions (use subshell to contain nullglob)
+while IFS= read -r filepath; do
+    EXTENSIONS_PRE+=("${filepath}")
+done < <(
+    shopt -s nullglob
+    for f in "${SCRIPT_DIR}/pre-process.d/${GIT_SUBCOMMAND,,}.sh" \
+             "${SCRIPT_DIR}/pre-process.d/${GIT_SUBCOMMAND,,}_"*.sh \
+             "${SCRIPT_DIR}/pre-process.d/"[0-9]*.sh; do
+        [[ -f "$f" && -x "$f" ]] && printf '%s\n' "$f"
+    done
 )
-for filepath in "${__extensions[@]}"; do
-    [[ -f "${filepath}" && -x "${filepath}" ]] \
-        && EXTENSIONS_PRE+=("${filepath}")
-done
 
-# Find post-process extensions
-__extensions=(
-  "${SCRIPT_DIR}/post-process.d/${GIT_SUBCOMMAND,,}.sh"
-  "${SCRIPT_DIR}/post-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
-  "${SCRIPT_DIR}/post-process.d/"[0-9]*.sh
+# Find post-process extensions (use subshell to contain nullglob)
+while IFS= read -r filepath; do
+    EXTENSIONS_POST+=("${filepath}")
+done < <(
+    shopt -s nullglob
+    for f in "${SCRIPT_DIR}/post-process.d/${GIT_SUBCOMMAND,,}.sh" \
+             "${SCRIPT_DIR}/post-process.d/${GIT_SUBCOMMAND,,}_"*.sh \
+             "${SCRIPT_DIR}/post-process.d/"[0-9]*.sh; do
+        [[ -f "$f" && -x "$f" ]] && printf '%s\n' "$f"
+    done
 )
-for filepath in "${__extensions[@]}"; do
-    [[ -f "${filepath}" && -x "${filepath}" ]] \
-        && EXTENSIONS_POST+=("${filepath}")
-done
 
 # Set the extensions as read only
 readonly EXTENSIONS_PRE
 readonly EXTENSIONS_POST
-
-shopt -u nullglob
 
 debug "pre-process extensions: ${EXTENSIONS_PRE[*]}"
 debug "post-process extensions: ${EXTENSIONS_POST[*]}"
@@ -728,7 +726,6 @@ __check_recursion 20
 ## Pre-process #################################################################
 
 debug "begin pre-processing"
-shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${EXTENSIONS_PRE[@]}"; do
     debug "sourcing pre-process script: ${filepath}"
     filename="${filepath##*/}"
@@ -751,7 +748,6 @@ for filepath in "${EXTENSIONS_PRE[@]}"; do
         fi
     fi
 done
-shopt -u nullglob
 
 
 ## Run git #####################################################################
@@ -774,7 +770,6 @@ fi
 
 # Do other stuff after running the git command
 debug "begin post-processing"
-shopt -s nullglob  # don't fail if glob patterns don't match anything
 for filepath in "${EXTENSIONS_POST[@]}"; do
     debug "sourcing post-process script: ${filepath}"
     filename="${filepath##*/}"
@@ -797,7 +792,6 @@ for filepath in "${EXTENSIONS_POST[@]}"; do
         fi
     fi
 done
-shopt -u nullglob
 
 # Notify if output was modified by a plugin
 if ${NOTIFY_ON_MODIFY} && ${OUTPUT_MODIFIED}; then

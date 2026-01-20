@@ -24,6 +24,10 @@ fi
 
 # Find all instances of "WIP" in those files
 __wip_regex=$(plugin-option --default='(#|//|\*).*\bWIP\b' regex)
+if [[ -z "${__wip_regex}" ]]; then
+    warn "wrapper.plugin.commit_wip_check.regex is empty, skipping WIP check"
+    return 0
+fi
 debug "using regex /${__wip_regex}/ against ${#__committed_files[@]} files"
 readarray -t __wips < <(
     "${GIT}" "${GIT_ARGS[@]}" -c color.ui=never grep -E "${__wip_regex}" -- "${__committed_files[@]}" \

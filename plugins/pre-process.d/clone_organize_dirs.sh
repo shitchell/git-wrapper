@@ -5,7 +5,7 @@
 # Config:
 #   wrapper.plugin.clone_organize_dirs.enabled (bool): default true
 #   wrapper.plugin.clone_organize_dirs.force (bool): force organize even in scripts
-#   wrapper.plugin.clone_organize_dirs.basedir (string): base directory (default: ~/code/git)
+#   wrapper.plugin.clone_organize_dirs.basedir (string): base directory (default: ~/git)
 #
 # This plugin will do nothing if:
 # - a target directory is specified, then this script will do nothing.
@@ -159,7 +159,7 @@ if [[ -z "${__target_directory_base}" ]]; then
     # We intentionally do not use --default so that we can tell
     # if basedir is unset and let the user know to set it.
     __using_default_base=true
-    __target_directory_base="${HOME}/code/git"
+    __target_directory_base="${HOME}/git"
 fi
 debug "__target_directory_base: ${__target_directory_base}"
 

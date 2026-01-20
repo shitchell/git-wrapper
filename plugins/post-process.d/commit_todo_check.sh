@@ -35,6 +35,4 @@ if [[ "${#__todos[@]}" -gt 0 ]]; then
     printf "${S_BOLD}${C_YELLOW}%s${S_RESET}\n" \
         "WARNING: Found ${#__todos[@]} TODOs in the code:"
     printf "%s\n" "${__todos[@]}" | sed -e 's/^/  /'
-    printf "${S_BOLD}${C_YELLOW}%s${S_RESET}\n" \
-        "Please actually get around to these at some point. Thanks."
 fi

@@ -35,6 +35,4 @@ if [[ "${#__wips[@]}" -gt 0 ]]; then
     printf "${S_BOLD}${C_YELLOW}%s${S_RESET}\n" \
         "WARNING: Found ${#__wips[@]} WIPs in the code:"
     printf "%s\n" "${__wips[@]}" | sed -e 's/^/  /'
-    printf "${S_BOLD}${C_YELLOW}%s${S_RESET}\n" \
-        "Just an FYI before you deliver this :) Thanks."
 fi

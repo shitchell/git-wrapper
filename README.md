@@ -129,6 +129,8 @@ $C_RED $C_GREEN $C_YELLOW $C_BLUE $C_MAGENTA $C_CYAN
 $S_BOLD $S_DIM $S_RESET
 ```
 
+See `bin/git` for the full list of available color and style variables (includes BLACK, WHITE, backgrounds, ITALIC, UNDERLINE, etc.).
+
 ### Example: Pre-process Plugin
 
 ```bash

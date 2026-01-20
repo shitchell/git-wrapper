@@ -482,7 +482,11 @@ fi' > invalid.sh
     cd "$TEST_TEMP"
     CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
 
-    run bash -c "GIT_TEST=1 source '$CLONE_PLUGIN' 'https://unsupported.example.com/user/repo.git'"
+    run bash -c "
+        warn() { printf 'warning: %s\n' \"\$*\" >&2; }
+        error() { printf 'error: %s\n' \"\$*\" >&2; }
+        GIT_TEST=1 source '$CLONE_PLUGIN' 'https://unsupported.example.com/user/repo.git'
+    "
     [[ "$output" == *"unsupported host"* ]] || [[ "$output" == *"Unable to parse"* ]]
 }
 

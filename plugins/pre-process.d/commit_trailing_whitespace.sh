@@ -83,19 +83,27 @@ if [[ ${#__files_with_whitespace[@]} -gt 0 ]]; then
         echo "  - ${__file}"
     done
 
+    # Detect GNU vs BSD sed for portable -i flag
+    if sed --version 2>&1 | grep -q "GNU"; then
+        __sed_i="sed -i"
+    else
+        # BSD sed (macOS) requires empty string argument
+        __sed_i="sed -i ''"
+    fi
+
     echo ""
     echo "To fix trailing whitespace, run the following commands:"
     echo ""
 
     for __file in "${__files_with_whitespace[@]}"; do
         # Print sed command to remove trailing whitespace
-        echo "  sed -i 's/[[:space:]]*$//' '${__git_root}/${__file}'"
+        echo "  ${__sed_i} 's/[[:space:]]*$//' '${__git_root}/${__file}'"
     done
 
     echo ""
     echo "Or fix all at once with:"
     echo ""
-    echo "  sed -i 's/[[:space:]]*$//' \\"
+    echo "  ${__sed_i} 's/[[:space:]]*$//' \\"
     for __i in "${!__files_with_whitespace[@]}"; do
         if [[ ${__i} -eq $((${#__files_with_whitespace[@]} - 1)) ]]; then
             echo "    '${__git_root}/${__files_with_whitespace[${__i}]}'"

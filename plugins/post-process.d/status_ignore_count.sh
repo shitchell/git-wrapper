@@ -12,6 +12,9 @@
 # Only run when called from an interactive session and not in a pipe
 [[ "${__STDOUT_PIPED}" == "true" || "${__IN_SCRIPT}" == "true" ]] && return 0
 
+# Skip if repo has no commits (unborn HEAD)
+"${GIT}" "${GIT_ARGS[@]}" rev-parse HEAD &>/dev/null || return 0
+
 # Don't show the last line if `--ignored` is in the subcommands
 __using_ignored=false
 for arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do

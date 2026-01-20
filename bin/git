@@ -167,11 +167,16 @@ while read -r filepath; do
     [[ "${__shebang}" == "#!" ]] && continue
     GIT="${filepath_real}"
     break
-done < <(which -a git)
+done < <(
+    IFS=:
+    for d in ${PATH}; do
+        [ -x "${d}/git" ] && printf '%s\n' "${d}/git"
+    done
+)
 
 # If git is not found, we can't do shit
 if [[ -z "${GIT}" ]]; then
-    echo "error: no git binary found"
+    echo "fatal: no git binary found" >&2
     exit 1
 fi
 
@@ -628,7 +633,6 @@ if ${USE_COLOR}; then
     C_MAGENTA=$'\033[35m'
     C_CYAN=$'\033[36m'
     C_WHITE=$'\033[37m'
-    C_RGB=$'\033[38;2;%d;%d;%dm'
     C_DEFAULT_FG=$'\033[39m'
     C_BLACK_BG=$'\033[40m'
     C_RED_BG=$'\033[41m'
@@ -638,7 +642,6 @@ if ${USE_COLOR}; then
     C_MAGENTA_BG=$'\033[45m'
     C_CYAN_BG=$'\033[46m'
     C_WHITE_BG=$'\033[47m'
-    C_RGB_BG=$'\033[48;2;%d;%d;%dm'
     C_DEFAULT_BG=$'\033[49m'
     S_RESET=$'\033[0m'
     S_BOLD=$'\033[1m'
@@ -658,9 +661,9 @@ if ${USE_COLOR}; then
     C_PLUGIN_LABEL="${C_CYAN}${S_BOLD}"
     C_PLUGIN_NAME="${C_CYAN}"
 else
-    unset C_BLACK C_RED C_GREEN C_YELLOW C_BLUE C_MAGENTA C_CYAN C_WHITE C_RGB \
+    unset C_BLACK C_RED C_GREEN C_YELLOW C_BLUE C_MAGENTA C_CYAN C_WHITE \
           C_DEFAULT_FG C_BLACK_BG C_RED_BG C_GREEN_BG C_YELLOW_BG C_BLUE_BG \
-          C_MAGENTA_BG C_CYAN_BG C_WHITE_BG C_RGB_BG C_DEFAULT_BG S_RESET \
+          C_MAGENTA_BG C_CYAN_BG C_WHITE_BG C_DEFAULT_BG S_RESET \
           S_BOLD S_DIM S_ITALIC S_UNDERLINE S_BLINK S_BLINK_FAST S_REVERSE \
           S_HIDDEN S_STRIKETHROUGH S_DEFAULT \
           C_ERROR C_WARNING C_PLUGIN_LABEL C_PLUGIN_NAME

@@ -23,10 +23,6 @@
 #   This will clone the repo into "./foo-bar"
 #   $ git clone https://github.com/myorg/myrepo.git ./foo-bar
 
-# Fallback definitions for standalone testing
-declare -f warn  >/dev/null || warn()  { printf "warning: %s\n" "$*" >&2; }
-declare -f error >/dev/null || error() { printf "error: %s\n" "$*" >&2; }
-
 debug "__IN_SCRIPT = ${__IN_SCRIPT}"
 
 # If CLAUDECODE environment variable exists, force organize

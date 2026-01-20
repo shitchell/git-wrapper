@@ -2,6 +2,8 @@
 
 Ready-to-use plugins for the git wrapper.
 
+**Note:** Plugins are sourced (not executed) by the wrapper, so they run in the same shell environment and have access to wrapper variables and functions. The shebang line is for editor syntax highlighting only.
+
 ## Installation
 
 Copy plugins to your `~/.git.d/` directory:

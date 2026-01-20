@@ -56,7 +56,7 @@ for __committed_file in "${__committed_files[@]}"; do
             __syntax_err=$(bash -n "${__abs_path}" 2>&1)
             if [[ -n "${__syntax_err}" ]]; then
                 echo "error"
-                echo -e "${C_RED}${__syntax_err}${S_RESET}" >&2
+                printf "%s\n" "${C_RED}${__syntax_err}${S_RESET}" >&2
                 return ${E_PRE_ERROR}
             else
                 echo "done"

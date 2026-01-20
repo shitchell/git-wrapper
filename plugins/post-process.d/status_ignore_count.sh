@@ -6,8 +6,11 @@
 # Config:
 #   wrapper.plugin.status_ignore_count.enabled (bool): default true
 
+# Exit if the git command failed
+[[ ${GIT_EXIT_CODE} -ne 0 ]] && return ${GIT_EXIT_CODE}
+
 # Only run when called from an interactive session and not in a pipe
-[[ "${_STDOUT_PIPED}" == "true" || "${_IN_SCRIPT}" == "true" ]] && return 0
+[[ "${__STDOUT_PIPED}" == "true" || "${__IN_SCRIPT}" == "true" ]] && return 0
 
 # Don't show the last line if `--ignored` is in the subcommands
 __using_ignored=false

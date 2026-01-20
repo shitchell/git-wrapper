@@ -78,7 +78,7 @@ if [[ ${#__python_files[@]} -gt 0 ]]; then
 
     if [[ ${__exit_code} -ne 0 ]]; then
         echo "error"
-        echo -e "${C_RED}${__output}${S_RESET}" | sed 's/^/    /' >&2
+        printf "%s\n" "${C_RED}${__output}${S_RESET}" | sed 's/^/    /' >&2
         if [[ "${__black_mode}" == "error" ]]; then
             return ${E_PRE_ERROR}
         fi

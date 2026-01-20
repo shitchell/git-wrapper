@@ -102,18 +102,23 @@ Plugins are sourced (not executed), so they have access to:
 | `RUN_GIT_CMD` | Set to `false` in pre-process to skip git execution |
 | `OUTPUT_MODIFIED` | Set to `true` if plugin modified output |
 | `USE_COLOR` | Whether color output is enabled |
-| `_STDOUT_PIPED` | `true` if stdout is being piped |
-| `_IN_SCRIPT` | `true` if git is being called from a script |
+| `__STDOUT_PIPED` | `true` if stdout is being piped |
+| `__IN_SCRIPT` | `true` if git is being called from a script |
 | `__PLUGIN_NAME` | Current plugin name (filename without `.sh`) |
 
 ### Helper Functions
 
 | Function | Description |
 |----------|-------------|
-| `plugin-option [--bool\|--int] [--default VAL] KEY` | Read `wrapper.plugin.<plugin>.<key>` |
-| `wrapper-option [--bool\|--int] [--default VAL] KEY` | Read `wrapper.<key>` |
-| `git-option [--bool\|--int] [--default VAL] KEY` | Read any git config key |
-| `debug MESSAGE` | Print debug message when `DEBUG=true` |
+| `plugin-option [--TYPE] [--default VAL] KEY` | Read `wrapper.plugin.<plugin>.<key>` |
+| `wrapper-option [--TYPE] [--default VAL] KEY` | Read `wrapper.<key>` |
+| `git-option [--TYPE] [--default VAL] KEY` | Read any git config key |
+| `warn MSG` | Print `warning: MSG` to stderr |
+| `error MSG` | Print `error: MSG` to stderr |
+| `fatal MSG` | Print `fatal: MSG` to stderr |
+| `debug MSG` | Print debug message when `DEBUG=true` |
+
+Type options: `--bool`, `--int`, `--bool-or-int`, `--path`, `--expiry-date`, `--color`
 
 ### Color Variables
 

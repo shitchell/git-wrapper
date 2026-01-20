@@ -27,14 +27,14 @@
 declare -f warn  >/dev/null || warn()  { printf "warning: %s\n" "$*" >&2; }
 declare -f error >/dev/null || error() { printf "error: %s\n" "$*" >&2; }
 
-debug "_IN_SCRIPT = ${_IN_SCRIPT}"
+debug "__IN_SCRIPT = ${__IN_SCRIPT}"
 
 # If CLAUDECODE environment variable exists, force organize
 if [[ -n "${CLAUDECODE}" ]]; then
     GIT_ARGS+=(-c wrapper.plugin.clone_organize_dirs.force=true)
 fi
 
-if [[ "${_IN_SCRIPT}" == "true" ]]; then
+if [[ "${__IN_SCRIPT}" == "true" ]]; then
     __force_organize=$(plugin-option --bool --default=false force)
     if ! ${__force_organize}; then
         debug "skipping: session is not interactive and force option is unset"
@@ -256,10 +256,13 @@ __target_directory+="${__target_directory_suffix}"
 debug "__target_directory: ${__target_directory}"
 
 # Check if the target directory exists and is not empty
-if [[
-    -d "${__target_directory}"
-    && -n "$(ls -A "${__target_directory}")"
-]]; then
+# Use subshell to contain shopt changes
+__dir_not_empty=$(
+    shopt -s nullglob dotglob
+    __contents=("${__target_directory}"/*)
+    [[ ${#__contents[@]} -gt 0 ]] && echo true
+)
+if [[ -d "${__target_directory}" && "${__dir_not_empty}" == "true" ]]; then
     # Ignore for now
     warn "Target directory exists and is not empty: ${__target_directory}"
     warn "To clone to this directory, manually run the following command:"

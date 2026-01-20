@@ -52,7 +52,6 @@
 #
 # TODO:
 # - add a function for removing ansi codes from pre-/post-process output
-# - add a function for printing an error message
 # - capture git stdout/stderr so post-process plugins can access the output
 #   (consider: FIFOs with background tee processes for streaming + capture)
 # - maybe: on the first call to git-option, read the configs into a set of
@@ -484,19 +483,19 @@ function plugin-option() {
 ## Session Information #########################################################
 
 # Is stdout piped?
-[[ -t 1 ]] && _STDOUT_PIPED=false || _STDOUT_PIPED=true
-debug "_STDOUT_PIPED = ${_STDOUT_PIPED}"
+[[ -t 1 ]] && __STDOUT_PIPED=false || __STDOUT_PIPED=true
+debug "__STDOUT_PIPED = ${__STDOUT_PIPED}"
 
 # Are we in a script?
 ## get the calling process arguments
 __PARENT_ARGS=$(ps -o args= "${PPID}")
 ## if it contains a space, e.g. `-bash ./script.sh`, then we're in a script
 if [[ "${__PARENT_ARGS}" =~ " " ]]; then
-    _IN_SCRIPT=true
+    __IN_SCRIPT=true
 else
-    _IN_SCRIPT=false
+    __IN_SCRIPT=false
 fi
-debug "_IN_SCRIPT = ${_IN_SCRIPT}"
+debug "__IN_SCRIPT = ${__IN_SCRIPT}"
 
 
 ## Parse Arguments #############################################################
@@ -602,7 +601,7 @@ case "${COLOR_CONFIG}" in
         USE_COLOR="false"
         ;;
     auto)
-        ${_STDOUT_PIPED} && USE_COLOR="false" || USE_COLOR="true"
+        ${__STDOUT_PIPED} && USE_COLOR="false" || USE_COLOR="true"
         ;;
     *)
         USE_COLOR="false"
@@ -678,7 +677,7 @@ OUTPUT_MODIFIED=false  # plugins can set this to true if they modify git output
 
 
 ## Find extensions #############################################################
-_extensions=()
+__extensions=()
 EXTENSIONS_PRE=()
 EXTENSIONS_POST=()
 
@@ -689,23 +688,23 @@ debug "script directory: ${SCRIPT_DIR}"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
 
 # Find pre-process extensions
-_extensions=(
+__extensions=(
   "${SCRIPT_DIR}/pre-process.d/${GIT_SUBCOMMAND,,}.sh"
   "${SCRIPT_DIR}/pre-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
   "${SCRIPT_DIR}/pre-process.d/"[0-9]*.sh
 )
-for filepath in "${_extensions[@]}"; do
+for filepath in "${__extensions[@]}"; do
     [[ -f "${filepath}" && -x "${filepath}" ]] \
         && EXTENSIONS_PRE+=("${filepath}")
 done
 
 # Find post-process extensions
-_extensions=(
+__extensions=(
   "${SCRIPT_DIR}/post-process.d/${GIT_SUBCOMMAND,,}.sh"
   "${SCRIPT_DIR}/post-process.d/${GIT_SUBCOMMAND,,}_"*".sh"
   "${SCRIPT_DIR}/post-process.d/"[0-9]*.sh
 )
-for filepath in "${_extensions[@]}"; do
+for filepath in "${__extensions[@]}"; do
     [[ -f "${filepath}" && -x "${filepath}" ]] \
         && EXTENSIONS_POST+=("${filepath}")
 done

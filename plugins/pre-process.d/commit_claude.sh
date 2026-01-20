@@ -21,7 +21,7 @@ if [[ -n "${CLAUDECODE}" ]]; then
 
     # Check if a GPG key exists for Claude Code
     claude_key_id=$(gpg --list-secret-keys --keyid-format=long "Claude Code <noreply@anthropic.com>" 2>/dev/null \
-        | grep -E "^sec" | head -1 | sed 's/.*\/\([A-F0-9]*\) .*/\1/')
+        | grep -E "^sec" | head -1 | sed 's/.*\/\([A-Fa-f0-9]*\) .*/\1/')
 
     if [[ -n "${claude_key_id}" ]]; then
         echo "Enabling GPG signing for Claude Code session (key: ${claude_key_id})"

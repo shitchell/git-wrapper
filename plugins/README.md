@@ -92,7 +92,7 @@ Check for WIP markers in committed code.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `regex` | string | `(#\|//\|\*).*\bWIP\b` | Pattern to match WIP comments |
+| `regex` | string | `(#|//|\*).*\bWIP\b` | Pattern to match WIP comments |
 
 ### status_ignore_count.sh
 
@@ -121,3 +121,24 @@ Since sourced plugins cannot detect whether the wrapper's output is being piped,
 # Variables are empty when colors disabled, so this is safe
 echo "${C_RED}Error:${S_RESET} something went wrong"
 ```
+
+---
+
+## Message Helpers
+
+For standardized warning/error messages, use these helper functions. They match git's output format and write to stderr:
+
+| Function | Output |
+|----------|--------|
+| `warn "msg"` | `warning: msg` |
+| `error "msg"` | `error: msg` |
+| `fatal "msg"` | `fatal: msg` |
+
+```bash
+# Instead of custom error formatting
+warn "file not found, skipping check"
+error "invalid configuration value"
+fatal "cannot continue without required dependency"
+```
+
+**Note:** These output plain text (no colors) to match git's native message style. Use color variables if you need more prominent formatting for user-facing notices.

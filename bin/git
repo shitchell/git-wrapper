@@ -45,16 +45,16 @@
 # First: look specifically for /usr/bin/git.
 # Second: if that does not exist, look for any executable that does not have
 # /home/ anywhere in the filepath and does contain /usr/, /bin/, or /opt/. We no
-# longer look for an exectuable specifically in the root level directories to
+# longer look for an executable specifically in the root level directories to
 # ensure compatibility with lightly chrooted environments where the system level
 # /bin/ and /usr/bin/ directories are not actually at the root level of the
 # filesystem.
 #
 # TODO:
-# - add a USE_COLOR global var for scripts to use to determine if color should
-#   be used
 # - add a function for removing ansi codes from pre-/post-process output
 # - add a function for printing an error message
+# - capture git stdout/stderr so post-process plugins can access the output
+#   (consider: FIFOs with background tee processes for streaming + capture)
 # - maybe: on the first call to git-option, read the configs into a set of
 #   readonly variables that git-option will use thereafter to reduce the number
 #   of I/O operations... uncertain because I'm not sure how well we can custom
@@ -208,6 +208,19 @@ if ! declare -f debug &>/dev/null; then
         return 1
     }
 fi
+
+# Helper functions for standardized output (matches git's format)
+warn() {
+    printf "warning: %s\n" "$*" >&2
+}
+
+error() {
+    printf "error: %s\n" "$*" >&2
+}
+
+fatal() {
+    printf "fatal: %s\n" "$*" >&2
+}
 
 # Run the git command defined by GIT_ARGS, GIT_SUBCOMMAND, & GIT_SUBCOMMAND_ARGS
 function run-git-cmd() {
@@ -368,12 +381,11 @@ function run-plugin() {
 }
 
 # Nice and simple function for getting git config options
-# Usage: git-option [--type <datatype>] [--default <value>] [--wrapper]
+# Usage: git-option [--type <datatype>] [--default <value>] [--prefix <prefix>]
 #                   [--bool|--int|--bool-or-int|--path|--expiry-date|--color]
 #                   <option> [<default>]
 function git-option() {
-    local -- __type __option __default __value
-    local -- __do_wrapper=false
+    local -- __type __option __default __value __prefix
     local -a __config_args
     local -i __exit_code=0
 
@@ -396,8 +408,12 @@ function git-option() {
                 __default=$2
                 shift 1
                 ;;
-            --wrapper)
-                __do_wrapper=true
+            --prefix=*)
+                __prefix=${1#*=}
+                ;;
+            --prefix)
+                __prefix=$2
+                shift 1
                 ;;
             -*)
                 echo "error: unknown option: ${1}" >&2
@@ -422,10 +438,10 @@ function git-option() {
         return 1
     fi
 
-    # Restrict the function to only "wrapper.*" options
-    if ${__do_wrapper} && [[ ${__option} != "wrapper."* ]]; then
-        __option=wrapper.${__option}
-        debug "added wrapper prefix: ${__option}"
+    # Apply prefix if specified
+    if [[ -n ${__prefix} ]]; then
+        __option="${__prefix}.${__option}"
+        debug "added prefix: ${__option}"
     fi
 
     [[ -n ${__type} ]] && __config_args+=(--type="${__type}")
@@ -448,12 +464,12 @@ function git-option() {
     return ${__exit_code}
 }
 
-# Alias for `git-option --wrapper`
+# Alias for `git-option --prefix=wrapper`
 function wrapper-option() {
-    git-option --wrapper "${@}"
+    git-option --prefix="wrapper" "${@}"
 }
 
-# Get a plugin-specific option from `wrapper.plugin.<plugin_name>.<key>`
+# Alias for `git-option --prefix=wrapper.plugin.<name>`
 # Requires __PLUGIN_NAME to be set before calling
 # Usage: plugin-option [--bool|--int|etc] [--default <value>] <key>
 function plugin-option() {
@@ -461,32 +477,7 @@ function plugin-option() {
         echo "error: __PLUGIN_NAME not set" >&2
         return 1
     fi
-    local -- __key
-    local -a __args
-
-    # Separate the key from other arguments
-    while [[ ${#} -gt 0 ]]; do
-        case ${1} in
-            -*)
-                __args+=("${1}")
-                ;;
-            *)
-                if [[ -z ${__key} ]]; then
-                    __key=${1}
-                else
-                    __args+=("${1}")
-                fi
-                ;;
-        esac
-        shift 1
-    done
-
-    if [[ -z ${__key} ]]; then
-        echo "error: no key specified" >&2
-        return 1
-    fi
-
-    git-option "${__args[@]}" "wrapper.plugin.${__PLUGIN_NAME}.${__key}"
+    git-option --prefix="wrapper.plugin.${__PLUGIN_NAME}" "${@}"
 }
 
 
@@ -770,8 +761,9 @@ if [[ "${RUN_GIT_CMD}" == "true" ]]; then
     debug "git command exited with ${GIT_EXIT_CODE}"
     if [[ ${GIT_EXIT_CODE} -ne 0 ]]; then
         debug "git command failed"
-        # Always exit on git failure - git exit code takes priority
-        exit ${GIT_EXIT_CODE}
+        if ${EXIT_ON_FAILURE}; then
+            exit ${GIT_EXIT_CODE}
+        fi
     fi
 fi
 
@@ -781,7 +773,6 @@ fi
 # Do other stuff after running the git command
 debug "begin post-processing"
 shopt -s nullglob  # don't fail if glob patterns don't match anything
-# for filepath in "${HOME}/.git.d/post-process.d/${GIT_SUBCOMMAND,,}"[_.-]*sh "${HOME}/.git.d/post-process.d/"[0-9]*.sh; do
 for filepath in "${EXTENSIONS_POST[@]}"; do
     debug "sourcing post-process script: ${filepath}"
     filename="${filepath##*/}"

@@ -72,7 +72,7 @@ done
 
 # Check the python files with `black`
 if [[ ${#__python_files[@]} -gt 0 ]]; then
-    printf "Checking %d python files with \`black\` ... " "${#__python_files[@]}"
+    printf 'Checking %d python files with `black` ... ' "${#__python_files[@]}"
     __output=$(black --check --diff -- "${__python_files[@]}" 2>&1)
     __exit_code=$?
 

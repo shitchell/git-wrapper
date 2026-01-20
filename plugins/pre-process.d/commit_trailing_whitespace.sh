@@ -7,11 +7,15 @@
 # Config:
 #   wrapper.plugin.commit_trailing_whitespace.enabled (bool): default true
 
+# Fallback definitions for standalone testing
+declare -f warn  >/dev/null || warn()  { printf "warning: %s\n" "$*" >&2; }
+declare -f error >/dev/null || error() { printf "error: %s\n" "$*" >&2; }
+
 debug "running whitespace check"
 
 # Ensure `file` command is installed
 if ! command -v file &>/dev/null; then
-    echo "file command not installed, skipping trailing whitespace check" >&2
+    warn "file command not installed, skipping trailing whitespace check"
     return 0
 fi
 
@@ -72,7 +76,7 @@ done
 # If we found files with trailing whitespace, fail and provide fix commands
 if [[ ${#__files_with_whitespace[@]} -gt 0 ]]; then
     echo ""
-    echo "ERROR: Found trailing whitespace in the following files:"
+    error "Found trailing whitespace in the following files:"
     echo ""
 
     for __file in "${__files_with_whitespace[@]}"; do

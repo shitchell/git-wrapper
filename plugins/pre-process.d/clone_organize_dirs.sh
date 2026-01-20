@@ -23,6 +23,10 @@
 #   This will clone the repo into "./foo-bar"
 #   $ git clone https://github.com/myorg/myrepo.git ./foo-bar
 
+# Fallback definitions for standalone testing
+declare -f warn  >/dev/null || warn()  { printf "warning: %s\n" "$*" >&2; }
+declare -f error >/dev/null || error() { printf "error: %s\n" "$*" >&2; }
+
 debug "_IN_SCRIPT = ${_IN_SCRIPT}"
 
 # If CLAUDECODE environment variable exists, force organize
@@ -76,8 +80,32 @@ GIT_POSITIONAL_ARGS=( "${GIT_POSITIONAL_ARGS[@]}" )
 if [[ ${#GIT_POSITIONAL_ARGS[@]} -eq 0 ]]; then
     ## determine the positional arguments
     GIT_POSITIONAL_ARGS=()
+    __skip_next=false
     for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
-        [[ "${__arg}" == "-"* ]] && continue
+        # Skip values for options that take a separate argument
+        if ${__skip_next}; then
+            __skip_next=false
+            continue
+        fi
+        # Check for options that take a separate value (from man git-clone)
+        case "${__arg}" in
+            # Short options: -o, -b, -u, -j, -c all take a value
+            -o|-b|-u|-j|-c)
+                __skip_next=true
+                continue
+                ;;
+            # Long options that take a separate value
+            --reference|--reference-if-able|--origin|--branch|--upload-pack|\
+            --template|--config|--depth|--shallow-since|--shallow-exclude|\
+            --separate-git-dir|--jobs|--server-option|--filter|--recurse-submodules)
+                __skip_next=true
+                continue
+                ;;
+            # Skip any other option (including --foo=bar style)
+            -*)
+                continue
+                ;;
+        esac
         GIT_POSITIONAL_ARGS+=("${__arg}")
     done
 fi
@@ -104,11 +132,11 @@ elif [[ "${__clone_url}" =~ ^[^@]+@([^:]+) ]]; then
     __is_ssh=true
 elif [[ "${__clone_url}" =~ ^/ ]]; then
     # Local filepath, don't organize
-    echo "WARNING: not organizing, local filepaths unsupported: ${__clone_url}"
+    warn "not organizing, local filepaths unsupported: ${__clone_url}"
     return 0
 else
     # If we couldn't parse the host out, then skip this script
-    echo "WARNING: Unable to parse host from clone URL: ${__clone_url}" >&2
+    warn "Unable to parse host from clone URL: ${__clone_url}"
     return 0
 fi
 
@@ -116,7 +144,7 @@ fi
 
 if [[ -z "${__host}" ]]; then
     # Ignore for now
-    echo "WARNING: Unable to parse host from clone URL: ${__clone_url}" >&2
+    warn "Unable to parse host from clone URL: ${__clone_url}"
     return 0
 fi
 
@@ -168,7 +196,7 @@ case "${__host}" in
             fi
         fi
         ;;
-    "github.com" | *"gitlab"*)
+    "github.com" | "gitlab.com" | *".gitlab."*)
         # https://<host>/<user>/<repo>.git
         # https://<host>/<org>/<repo>
         # git@<host>:<user>/<repo>.git
@@ -209,14 +237,14 @@ case "${__host}" in
         fi
         ;;
     *)
-        echo "ERROR: unsupported host: ${__host}" >&2
+        error "unsupported host: ${__host}"
         return 0
         ;;
 esac
 
 # Check if we were able to set the target suffix
 if [[ -z "${__target_directory_suffix}" ]]; then
-    echo "ERROR: skipping: unable to parse '${__host}' clone URL: ${__clone_url}" >&2
+    error "skipping: unable to parse '${__host}' clone URL: ${__clone_url}"
     return 0
 fi
 
@@ -233,9 +261,9 @@ if [[
     && -n "$(ls -A "${__target_directory}")"
 ]]; then
     # Ignore for now
-    echo "WARNING: Target directory exists and is not empty: ${__target_directory}" >&2
-    echo "WARNING: To clone to this directory, manually run the following command:" >&2
-    echo "WARNING:   git clone '${__clone_url}' '${__target_directory}'" >&2
+    warn "Target directory exists and is not empty: ${__target_directory}"
+    warn "To clone to this directory, manually run the following command:"
+    warn "  git clone '${__clone_url}' '${__target_directory}'"
     return ${E_PRE_ERROR}
 fi
 
@@ -244,7 +272,7 @@ fi
 # If we made it this far, then we have a full target path. If we had to use
 # the default base directory, then warn the user
 if ${__using_default_base}; then
-    echo "WARNING: wrapper.plugin.clone_organize_dirs.basedir not set, using default: ${__target_directory_base}" >&2
+    warn "wrapper.plugin.clone_organize_dirs.basedir not set, using default: ${__target_directory_base}"
     # Give them time to cancel
     printf "..."
     sleep 1
@@ -257,7 +285,7 @@ fi
 
 # Make sure the target directory exists
 if ! mkdir -p "${__target_directory}" 2>/dev/null; then
-    echo "ERROR: Unable to create target directory: ${__target_directory}" >&2
+    error "Unable to create target directory: ${__target_directory}"
     return ${E_PRE_ERROR}
 fi
 

@@ -4,7 +4,7 @@
 #
 # Config:
 #   wrapper.plugin.commit_todo_check.enabled (bool): default true
-#   wrapper.plugin.commit_todo_check.regex (string): default '\bTODO:'
+#   wrapper.plugin.commit_todo_check.regex (string): default '(^|[^[:alnum:]_])TODO:'
 
 # Exit if the commit was unsuccessful
 [[ ${GIT_EXIT_CODE} -ne 0 ]] && return ${GIT_EXIT_CODE}
@@ -23,14 +23,14 @@ if [[ ${#__committed_files[@]} -eq 0 ]]; then
 fi
 
 # Find all instances of "TODO:" in those files, excluding binary files
-__todo_regex=$(plugin-option --default='\bTODO:' regex)
+__todo_regex=$(plugin-option --default='(^|[^[:alnum:]_])TODO:' regex)
 if [[ -z "${__todo_regex}" ]]; then
     warn "wrapper.plugin.commit_todo_check.regex is empty, skipping TODO check"
     return 0
 fi
 debug "using regex /${__todo_regex}/ against ${#__committed_files[@]} files"
 readarray -t __todos < <(
-    "${GIT}" "${GIT_ARGS[@]}" -c color.ui=never grep "${__todo_regex}" -- "${__committed_files[@]}" \
+    "${GIT}" "${GIT_ARGS[@]}" -c color.ui=never grep -E "${__todo_regex}" -- "${__committed_files[@]}" \
         | grep -vE '^(Binary|diff|index) file'
 )
 

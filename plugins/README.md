@@ -86,7 +86,7 @@ Warn about TODOs in committed code.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `regex` | string | `\bTODO:` | Pattern to match TODO comments |
+| `regex` | string | `(^\|[^[:alnum:]_])TODO:` | Pattern to match TODO comments |
 
 ### commit_wip_check.sh
 
@@ -94,7 +94,7 @@ Check for WIP markers in committed code.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `regex` | string | `(#|//|\*).*\bWIP\b` | Pattern to match WIP comments |
+| `regex` | string | `(#\|//\|\*).*(^\|[^[:alnum:]_])WIP([^[:alnum:]_]\|$)` | Pattern to match WIP comments |
 
 ### status_ignore_count.sh
 

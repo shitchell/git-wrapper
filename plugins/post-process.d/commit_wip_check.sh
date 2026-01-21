@@ -4,7 +4,7 @@
 #
 # Config:
 #   wrapper.plugin.commit_wip_check.enabled (bool): default true
-#   wrapper.plugin.commit_wip_check.regex (string): default '(#|//|\*).*\bWIP\b'
+#   wrapper.plugin.commit_wip_check.regex (string): default '(#|//|\*).*(^|[^[:alnum:]_])WIP([^[:alnum:]_]|$)'
 
 # Exit if the commit was unsuccessful
 [[ ${GIT_EXIT_CODE} -ne 0 ]] && return ${GIT_EXIT_CODE}
@@ -23,7 +23,7 @@ if [[ ${#__committed_files[@]} -eq 0 ]]; then
 fi
 
 # Find all instances of "WIP" in those files
-__wip_regex=$(plugin-option --default='(#|//|\*).*\bWIP\b' regex)
+__wip_regex=$(plugin-option --default='(#|//|\*).*(^|[^[:alnum:]_])WIP([^[:alnum:]_]|$)' regex)
 if [[ -z "${__wip_regex}" ]]; then
     warn "wrapper.plugin.commit_wip_check.regex is empty, skipping WIP check"
     return 0

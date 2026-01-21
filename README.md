@@ -1,6 +1,6 @@
 # git-wrapper
 
-A custom git wrapper that runs pre/post-process plugins around git commands. Plugins can modify arguments, disable command execution, or react to git output.
+A custom git wrapper that runs plugins before or after git commands. Plugins can modify arguments, disable command execution, or react to git commands.
 
 ![TODO check example](screenshots/todo-check.png)
 

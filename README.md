@@ -6,20 +6,47 @@ A custom git wrapper that runs pre/post-process plugins around git commands. Plu
 
 ## Installation
 
-1. Clone the repo:
-   ```bash
-   git clone git@github.com:shitchell/git-wrapper.git
-   ```
+### Using the Install Script
 
-2. Add the wrapper to your PATH (before the system git):
-   ```bash
-   export PATH="/path/to/git-wrapper/bin:$PATH"
-   ```
+```bash
+git clone git@github.com:shitchell/git-wrapper.git
+cd git-wrapper
+./install.sh              # basic install
+./install.sh --with-plugins  # include sample plugins
+./install.sh --dry-run    # preview what will be done
+```
 
-3. Create the plugin directories:
-   ```bash
-   mkdir -p ~/.git.d/{pre-process.d,post-process.d}
-   ```
+The script symlinks the wrapper to `~/.local/bin/git`, creates the plugin directories at `~/.git.d/`, and sets `wrapper.scriptDir` in your git config. Use `--bin-dir` and `--config-dir` to customize locations.
+
+### Manual Installation
+
+```bash
+# Clone the repo
+git clone git@github.com:shitchell/git-wrapper.git
+cd git-wrapper
+
+# Symlink the wrapper to a directory in your PATH. It must come BEFORE
+# /usr/bin so that typing `git` runs the wrapper instead of the system git.
+# ~/.local/bin is a common choice and is often already in PATH.
+ln -s "$(pwd)/bin/git" ~/.local/bin/git
+
+# Ensure ~/.local/bin is in PATH (add to ~/.bashrc if not already there)
+export PATH="$HOME/.local/bin:$PATH"
+
+# Create the plugin directories. Pre-process plugins run before git commands,
+# post-process plugins run after. Scripts must be executable.
+mkdir -p ~/.git.d/pre-process.d
+mkdir -p ~/.git.d/post-process.d
+
+# (Optional) Tell git where to find the plugin directories. This is only
+# needed if you use a non-default location (something other than ~/.git.d).
+git config --global wrapper.scriptDir ~/.git.d
+
+# (Optional) Copy sample plugins from the repo
+cp plugins/pre-process.d/*.sh ~/.git.d/pre-process.d/
+cp plugins/post-process.d/*.sh ~/.git.d/post-process.d/
+chmod +x ~/.git.d/pre-process.d/*.sh ~/.git.d/post-process.d/*.sh
+```
 
 ## Configuration
 

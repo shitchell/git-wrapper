@@ -15,12 +15,12 @@ for __arg in "${GIT_SUBCOMMAND_ARGS[@]}"; do
     if [[ "${__arg}" == "--no-verify" || "${__arg}" == "-n" ]]; then
         if [[ "${__mode}" == "strict" ]]; then
             echo ""
-            echo "┌─────────────────────────────────────────────────────────────────┐"
-            echo "│  --no-verify is disabled                                        │"
-            echo "└─────────────────────────────────────────────────────────────────┘"
+            echo " ┌─────────────────────────────────────────────────────────────────┐"
+            echo " │  --no-verify is disabled                                        │"
+            echo " └─────────────────────────────────────────────────────────────────┘"
             echo ""
-            echo "  If you have issues with hooks, escalate to the human rather"
-            echo "  than bypassing them."
+            echo " If you take issue with a git hook, escalate to a human rather"
+            echo " than bypassing it."
             echo ""
             __action="BLOCKED"
             __exit_code=${E_PRE_ERROR}

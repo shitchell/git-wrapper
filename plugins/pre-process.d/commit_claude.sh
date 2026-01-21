@@ -9,8 +9,12 @@
 # Config:
 #   wrapper.plugin.commit_claude.enabled (bool): default true
 
+__claude_name="Claude Code"
+__claude_email="noreply@anthropic.com"
+
 if [[ -n "${CLAUDECODE}" ]]; then
-    GIT_ARGS+=(-c user.name="Claude Code" -c user.email="noreply@anthropic.com")
+    GIT_ARGS+=(-c user.name="${__claude_name}" -c user.email="${__claude_email}")
+    echo "Setting user to \"${__claude_name} <${__claude_email}>\""
 
     # Check if gpg is available
     if ! command -v gpg &>/dev/null; then

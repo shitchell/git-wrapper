@@ -25,7 +25,7 @@ fi
 # Find all instances of "TODO:" in those files, excluding binary files
 __todo_regex=$(plugin-option --default='(^|[^[:alnum:]_])TODO:' regex)
 if [[ -z "${__todo_regex}" ]]; then
-    warn "{plugin-key}.regex is empty, skipping TODO check"
+    warn "$(plugin-option --print-key regex) is empty, skipping TODO check"
     return 0
 fi
 debug "using regex /${__todo_regex}/ against ${#__committed_files[@]} files"

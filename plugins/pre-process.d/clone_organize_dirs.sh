@@ -271,7 +271,7 @@ fi
 # If we made it this far, then we have a full target path. If we had to use
 # the default base directory, then warn the user
 if ${__using_default_base}; then
-    warn "{plugin-key}.basedir not set, using default: ${__target_directory_base}"
+    warn "$(plugin-option --print-key basedir) not set, using default: ${__target_directory_base}"
     # Give them time to cancel
     printf "..."
     sleep 1

@@ -387,10 +387,11 @@ function run-plugin() {
 
 # Nice and simple function for getting git config options
 # Usage: git-option [--type <datatype>] [--default <value>] [--prefix <prefix>]
-#                   [--bool|--int|--bool-or-int|--path|--expiry-date|--color]
+#                   [--print-key] [--bool|--int|--bool-or-int|--path|--expiry-date|--color]
 #                   <option> [<default>]
 function git-option() {
     local -- __type __option __default __value __prefix
+    local -- __do_print_key=false
     local -a __config_args
     local -i __exit_code=0
 
@@ -420,6 +421,9 @@ function git-option() {
                 __prefix=$2
                 shift 1
                 ;;
+            --print-key)
+                __do_print_key=true
+                ;;
             -*)
                 echo "error: unknown option: ${1}" >&2
                 return 1
@@ -447,6 +451,12 @@ function git-option() {
     if [[ -n ${__prefix} ]]; then
         __option="${__prefix}.${__option}"
         debug "added prefix: ${__option}"
+    fi
+
+    # If --print-key was specified, just output the full key and return
+    if ${__do_print_key}; then
+        echo "${__option}"
+        return 0
     fi
 
     [[ -n ${__type} ]] && __config_args+=(--type="${__type}")

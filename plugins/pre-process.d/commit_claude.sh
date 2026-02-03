@@ -6,8 +6,8 @@
 # to "Claude Code". If a GPG key exists for "Claude Code <noreply@anthropic.com>",
 # enable signing with that key; otherwise, disable GPG signing.
 #
-# Config:
-#   wrapper.plugin.commit_claude.enabled (bool): default true
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
 
 __claude_name="Claude Code"
 __claude_email="noreply@anthropic.com"

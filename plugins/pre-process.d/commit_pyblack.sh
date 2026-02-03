@@ -3,9 +3,9 @@
 # For any staged files that end with `.py` or start with a python shebang, check
 # them with `black` to ensure they are formatted correctly.
 #
-# Config:
-#   wrapper.plugin.commit_pyblack.enabled (bool): default true
-#   wrapper.plugin.commit_pyblack.mode (str): "warn" or "error" (default: warn)
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
+#   {plugin-key}.mode (str): "warn" or "error" (default: warn)
 
 # Ensure `black` is installed
 if ! command -v black &>/dev/null; then

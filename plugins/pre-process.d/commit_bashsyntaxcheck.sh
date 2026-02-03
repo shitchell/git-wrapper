@@ -3,8 +3,8 @@
 # For any staged files that end with `.sh` or start with a bash shebang, check
 # them with `bash -n` to ensure they have valid syntax.
 #
-# Config:
-#   wrapper.plugin.commit_bashsyntaxcheck.enabled (bool): default true
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
 
 # Set up a function to check for a bash shebang
 __has_shebang() {

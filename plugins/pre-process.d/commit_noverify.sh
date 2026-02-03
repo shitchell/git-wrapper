@@ -2,9 +2,9 @@
 #
 # Warn or block --no-verify usage
 #
-# Config:
-#   wrapper.plugin.commit_noverify.enabled (bool): default true
-#   wrapper.plugin.commit_noverify.mode (string): "warn" or "strict" (default: warn)
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
+#   {plugin-key}.mode (string): "warn" or "strict" (default: warn)
 #     - warn: print warning but allow commit
 #     - strict: block the commit
 

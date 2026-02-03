@@ -4,8 +4,8 @@
 # to detect mime types. If any files have trailing whitespace, print sed
 # commands to fix them and fail the commit.
 #
-# Config:
-#   wrapper.plugin.commit_trailing_whitespace.enabled (bool): default true
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
 
 # Fallback definitions for standalone testing
 declare -f warn  >/dev/null || warn()  { printf "warning: %s\n" "$*" >&2; }

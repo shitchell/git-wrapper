@@ -3,8 +3,8 @@
 # Show a count of all ignored directories and files at the end of the status
 # message
 #
-# Config:
-#   wrapper.plugin.status_ignore_count.enabled (bool): default true
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
 
 # Exit if the git command failed
 [[ ${GIT_EXIT_CODE} -ne 0 ]] && return ${GIT_EXIT_CODE}

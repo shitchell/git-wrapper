@@ -2,17 +2,17 @@
 #
 # Organize cloned directories based on the host, organization/user, and project.
 #
-# Config:
-#   wrapper.plugin.clone_organize_dirs.enabled (bool): default true
-#   wrapper.plugin.clone_organize_dirs.force (bool): force organize even in scripts
-#   wrapper.plugin.clone_organize_dirs.basedir (string): base directory (default: ~/git)
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
+#   {plugin-key}.force (bool): force organize even in scripts
+#   {plugin-key}.basedir (string): base directory (default: ~/git)
 #
 # This plugin will do nothing if:
 # - a target directory is specified, then this script will do nothing.
 # - `git` is called from within a script (so as to not break installation
 #    scripts that expect the repo to be cloned into the current directory).
 #
-# If `wrapper.plugin.clone_organize_dirs.force` is set to true, the above goes
+# If `{plugin-key}.force` is set to true, the above goes
 # out the window, and this plugin will ALWAYS organize a cloned repo.
 #
 # Examples:
@@ -27,7 +27,7 @@ debug "__IN_SCRIPT = ${__IN_SCRIPT}"
 
 # If CLAUDECODE environment variable exists, force organize
 if [[ -n "${CLAUDECODE}" ]]; then
-    GIT_ARGS+=(-c wrapper.plugin.clone_organize_dirs.force=true)
+    GIT_ARGS+=(-c {plugin-key}.force=true)
 fi
 
 if [[ "${__IN_SCRIPT}" == "true" ]]; then
@@ -271,7 +271,7 @@ fi
 # If we made it this far, then we have a full target path. If we had to use
 # the default base directory, then warn the user
 if ${__using_default_base}; then
-    warn "wrapper.plugin.clone_organize_dirs.basedir not set, using default: ${__target_directory_base}"
+    warn "{plugin-key}.basedir not set, using default: ${__target_directory_base}"
     # Give them time to cancel
     printf "..."
     sleep 1

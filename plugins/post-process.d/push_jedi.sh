@@ -2,8 +2,8 @@
 #
 # Print a Jedi blessing after force pushes
 #
-# Config:
-#   wrapper.plugin.push_jedi.enabled (bool): default true
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
 
 # Only run on successful push
 [[ ${GIT_EXIT_CODE} -ne 0 ]] && return 0

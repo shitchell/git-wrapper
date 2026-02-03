@@ -2,9 +2,9 @@
 #
 # Check for TODO notes after committing
 #
-# Config:
-#   wrapper.plugin.commit_todo_check.enabled (bool): default true
-#   wrapper.plugin.commit_todo_check.regex (string): default '(^|[^[:alnum:]_])TODO:'
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
+#   {plugin-key}.regex (string): default '(^|[^[:alnum:]_])TODO:'
 
 # Exit if the commit was unsuccessful
 [[ ${GIT_EXIT_CODE} -ne 0 ]] && return ${GIT_EXIT_CODE}
@@ -25,7 +25,7 @@ fi
 # Find all instances of "TODO:" in those files, excluding binary files
 __todo_regex=$(plugin-option --default='(^|[^[:alnum:]_])TODO:' regex)
 if [[ -z "${__todo_regex}" ]]; then
-    warn "wrapper.plugin.commit_todo_check.regex is empty, skipping TODO check"
+    warn "{plugin-key}.regex is empty, skipping TODO check"
     return 0
 fi
 debug "using regex /${__todo_regex}/ against ${#__committed_files[@]} files"

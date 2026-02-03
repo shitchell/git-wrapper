@@ -2,9 +2,9 @@
 #
 # Check for WIP notes after committing
 #
-# Config:
-#   wrapper.plugin.commit_wip_check.enabled (bool): default true
-#   wrapper.plugin.commit_wip_check.regex (string): default '(#|//|\*).*(^|[^[:alnum:]_])WIP([^[:alnum:]_]|$)'
+# Config (see `git` for how {plugin-key} is resolved):
+#   {plugin-key}.enabled (bool): default true
+#   {plugin-key}.regex (string): default '(#|//|\*).*(^|[^[:alnum:]_])WIP([^[:alnum:]_]|$)'
 
 # Exit if the commit was unsuccessful
 [[ ${GIT_EXIT_CODE} -ne 0 ]] && return ${GIT_EXIT_CODE}
@@ -25,7 +25,7 @@ fi
 # Find all instances of "WIP" in those files
 __wip_regex=$(plugin-option --default='(#|//|\*).*(^|[^[:alnum:]_])WIP([^[:alnum:]_]|$)' regex)
 if [[ -z "${__wip_regex}" ]]; then
-    warn "wrapper.plugin.commit_wip_check.regex is empty, skipping WIP check"
+    warn "{plugin-key}.regex is empty, skipping WIP check"
     return 0
 fi
 debug "using regex /${__wip_regex}/ against ${#__committed_files[@]} files"

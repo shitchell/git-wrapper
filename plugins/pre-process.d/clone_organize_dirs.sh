@@ -27,7 +27,7 @@ debug "__IN_SCRIPT = ${__IN_SCRIPT}"
 
 # If CLAUDECODE environment variable exists, force organize
 if [[ -n "${CLAUDECODE}" ]]; then
-    GIT_ARGS+=(-c {plugin-key}.force=true)
+    GIT_ARGS+=(-c "$(plugin-option --print-key force)=true")
 fi
 
 if [[ "${__IN_SCRIPT}" == "true" ]]; then

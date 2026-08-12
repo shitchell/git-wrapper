@@ -470,6 +470,49 @@ fi' > invalid.sh
     [[ "$output" == *"__target_directory:"*"/dev.azure.com/myorg/myproject/myrepo"* ]]
 }
 
+@test "clone_organize_dirs: parses kernel.org HTTPS URL" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "HOME='$TEST_TEMP' GIT_TEST=1 source '$CLONE_PLUGIN' 'https://git.kernel.org/pub/scm/git/git.git'"
+    [[ "$output" == *"__host: git.kernel.org"* ]]
+    [[ "$output" == *"__target_directory:"*"/git.kernel.org/git/git"* ]]
+}
+
+@test "clone_organize_dirs: parses kernel.org git:// URL" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "HOME='$TEST_TEMP' GIT_TEST=1 source '$CLONE_PLUGIN' 'git://git.kernel.org/pub/scm/git/git.git'"
+    [[ "$output" == *"__host: git.kernel.org"* ]]
+    [[ "$output" == *"__target_directory:"*"/git.kernel.org/git/git"* ]]
+}
+
+@test "clone_organize_dirs: keeps deep kernel.org paths" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "HOME='$TEST_TEMP' GIT_TEST=1 source '$CLONE_PLUGIN' 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git'"
+    [[ "$output" == *"__target_directory:"*"/git.kernel.org/linux/kernel/git/torvalds/linux"* ]]
+}
+
+@test "clone_organize_dirs: strips cgit prefix and trailing slash" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "HOME='$TEST_TEMP' GIT_TEST=1 source '$CLONE_PLUGIN' 'https://git.kernel.org/cgit/git/git.git/'"
+    [[ "$output" == *"__target_directory:"*"/git.kernel.org/git/git"* ]]
+}
+
+@test "clone_organize_dirs: normalizes gitolite.kernel.org SSH URL" {
+    cd "$TEST_TEMP"
+    CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"
+
+    run bash -c "HOME='$TEST_TEMP' GIT_TEST=1 source '$CLONE_PLUGIN' 'git@gitolite.kernel.org:pub/scm/git/git.git'"
+    [[ "$output" == *"__host: gitolite.kernel.org"* ]]
+    [[ "$output" == *"__target_directory:"*"/git.kernel.org/git/git"* ]]
+}
+
 @test "clone_organize_dirs: exits when target directory specified" {
     cd "$TEST_TEMP"
     CLONE_PLUGIN="$PLUGINS_DIR/pre-process.d/clone_organize_dirs.sh"

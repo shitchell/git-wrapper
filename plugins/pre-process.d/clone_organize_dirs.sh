@@ -117,11 +117,16 @@ fi
 # Parse out the host
 __host=""
 __is_http=false
+__is_git=false
 __is_ssh=false
 if [[ "${__clone_url}" =~ ^https?://([^@]+@)?([^/:]+) ]]; then
     # Treat the URL as an HTTP URL
     __host="${BASH_REMATCH[2]}"
     __is_http=true
+elif [[ "${__clone_url}" =~ ^git://([^@]+@)?([^/:]+) ]]; then
+    # Treat the URL as a git protocol URL (kernel.org et al advertise these)
+    __host="${BASH_REMATCH[2]}"
+    __is_git=true
 elif [[ "${__clone_url}" =~ ^[^@]+@([^:]+) ]]; then
     # Treat the URL as an SSH URL
     __host="${BASH_REMATCH[1]}"
@@ -230,6 +235,43 @@ case "${__host}" in
                 __repo=$(urldecode "${BASH_REMATCH[2]%.git}")
                 __target_directory_suffix="${__user}/${__repo}"
             fi
+        fi
+        ;;
+    "kernel.org" | *".kernel.org")
+        # https://git.kernel.org/pub/scm/<path>/<repo>.git
+        # https://git.kernel.org/cgit/<path>/<repo>.git
+        # git://git.kernel.org/pub/scm/<path>/<repo>.git
+        # git@gitolite.kernel.org:pub/scm/<path>/<repo>.git
+        #
+        # kernel.org has no org/repo split -- repos live at arbitrarily deep
+        # paths under a "pub/scm" (or "cgit") prefix shared by every repo. So
+        # the prefix is dropped and the rest of the path is kept verbatim:
+        #   pub/scm/git/git.git -> git.kernel.org/git/git
+        #   pub/scm/linux/kernel/git/torvalds/linux.git
+        #       -> git.kernel.org/linux/kernel/git/torvalds/linux
+        __path=""
+        if ${__is_http} || ${__is_git}; then
+            if [[ "${__clone_url}" =~ ^(https?|git)://[^/]+/(.*)$ ]]; then
+                __path="${BASH_REMATCH[2]}"
+            fi
+        elif ${__is_ssh}; then
+            if [[ "${__clone_url}" =~ ^[^@]+@[^:]+:(.*)$ ]]; then
+                __path="${BASH_REMATCH[1]}"
+            fi
+        fi
+        # Strip the leading/trailing slashes, the ".git" suffix, and the
+        # frontend prefix. Order matters: cgit serves browsable URLs ending in
+        # "<repo>.git/", so the trailing slash has to go before the suffix.
+        __path="${__path#/}"
+        __path="${__path%/}"
+        __path="${__path%.git}"
+        __path="${__path#pub/scm/}"
+        __path="${__path#cgit/}"
+        if [[ -n "${__path}" ]]; then
+            # git./gitolite./cgit. are all frontends for the same repos, so
+            # normalize them to one directory
+            __target_directory_host="git.kernel.org"
+            __target_directory_suffix=$(urldecode "${__path}")
         fi
         ;;
     *)

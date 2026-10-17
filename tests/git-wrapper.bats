@@ -898,3 +898,72 @@ fi' > invalid.sh
     run "$WRAPPER_PATH" commit -m "disabled whitespace check"
     [[ $status -eq 0 ]]
 }
+
+# =============================================================================
+# Stream Separation Tests
+#
+# Regression guard. The wrapper used to re-emit BOTH plugin streams on its own
+# stdout (run-plugin piped plugin stderr through an awk whose stdout was the
+# wrapper's stdout). `SHA=$(git commit-tree ...)` then captured the identity
+# banner along with the object name. Because the malformed SHA made downstream
+# commands fail, guard tests built on it reported "FIRED" and looked like they
+# were working -- a false green dressed as a red. Assert stdout purity by
+# stream, not by a list of "plumbing" subcommands.
+# =============================================================================
+
+# Install a plugin that writes to both streams for <subcommand>
+_noisy_plugin_dir() {
+    local -- __sub=$1 __dir="${TEST_TEMP}/noisy.git.d"
+    mkdir -p "${__dir}/pre-process.d"
+    cat > "${__dir}/pre-process.d/${__sub}_noise.sh" <<'PLUGIN'
+echo "NOISE-ON-STDOUT"
+echo "NOISE-ON-STDERR" >&2
+PLUGIN
+    chmod +x "${__dir}/pre-process.d/${__sub}_noise.sh"
+    echo "${__dir}"
+}
+
+@test "plugin output never reaches wrapper stdout (rev-parse)" {
+    cd "$TEST_TEMP"
+    "$REAL_GIT" config wrapper.scriptDir "$(_noisy_plugin_dir rev-parse)"
+
+    "$WRAPPER_PATH" rev-parse --git-dir > "${TEST_TEMP}/out" 2> "${TEST_TEMP}/err"
+
+    # stdout must be byte-identical to real git's
+    "$REAL_GIT" rev-parse --git-dir > "${TEST_TEMP}/ref"
+    run diff "${TEST_TEMP}/ref" "${TEST_TEMP}/out"
+    [[ $status -eq 0 ]]
+
+    # ...and both noise lines must have landed on stderr instead
+    run grep -c NOISE "${TEST_TEMP}/err"
+    [[ "$output" == "2" ]]
+}
+
+@test "plugin output never reaches wrapper stdout (hash-object)" {
+    cd "$TEST_TEMP"
+    "$REAL_GIT" config wrapper.scriptDir "$(_noisy_plugin_dir hash-object)"
+
+    printf 'payload\n' | "$WRAPPER_PATH" hash-object --stdin \
+        > "${TEST_TEMP}/out" 2> "${TEST_TEMP}/err"
+
+    # A $(...) capture must yield a bare, usable object name
+    run cat "${TEST_TEMP}/out"
+    [[ "$output" =~ ^[0-9a-f]{40}$ ]]
+
+    run grep -c NOISE "${TEST_TEMP}/err"
+    [[ "$output" == "2" ]]
+}
+
+@test "plugin diagnostics are still emitted, not silently dropped" {
+    cd "$TEST_TEMP"
+    "$REAL_GIT" config wrapper.scriptDir "$(_noisy_plugin_dir rev-parse)"
+
+    "$WRAPPER_PATH" rev-parse --git-dir > "${TEST_TEMP}/out" 2> "${TEST_TEMP}/err"
+
+    # Control: a wrapper that stopped announcing its decisions would pass the
+    # stdout-purity tests above while being a worse bug than the one fixed.
+    run grep -q NOISE-ON-STDOUT "${TEST_TEMP}/err"
+    [[ $status -eq 0 ]]
+    run grep -q NOISE-ON-STDERR "${TEST_TEMP}/err"
+    [[ $status -eq 0 ]]
+}

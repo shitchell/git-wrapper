@@ -29,6 +29,9 @@
 #   to git without running any pre-/post-process scripts.
 # - wrapper.showScriptName: if set to true, the pre-/post-process script output
 #   will be prefixed with the name of the script that is being run.
+#   (Plugin output goes to the wrapper's STDERR on both streams -- see
+#   run-plugin(). STDOUT is reserved for the real git's output, byte for byte,
+#   so that `$(git <plumbing>)` captures only what git printed.)
 # - wrapper.scriptDir: the directory where the pre-/post-process scripts are
 #   located. If not set, the default is ~/.git.d/
 # - wrapper.exitOnFailure: if set to true, the script will exit with the exit
@@ -375,11 +378,28 @@ function run-plugin() {
     # showing the plugin name and have stdout/stderr labels)
     #   [(plugin) <filename>: ][<stderr_prefix>: ]<stderr>
     #   [(plugin) <filename>: ][<stdout_prefix>: ]<stdout>
-    # shellcheck disable=SC1090  # plugins are dynamically discovered
-    source "${__plugin_path}" \
-        2> >(awk -v prefix="${__stderr_prefix}" '{print prefix $0; fflush()}') \
-        1> >(awk -v prefix="${__stdout_prefix}" '{print prefix $0; fflush()}')
-    __exit_code=$?
+    #
+    # BOTH streams are re-emitted on the wrapper's STDERR. Plugin output is the
+    # wrapper's own diagnostics, never git's data: run-git-cmd execs the real git
+    # with our fds inherited, so git's stdout reaches the caller untouched by this
+    # function. Anything a plugin prints is therefore commentary, and commentary on
+    # fd 1 corrupts the output of any subcommand whose stdout is parsed --
+    # `SHA=$(git commit-tree ...)` capturing the identity banner instead of an
+    # object name. Routing by stream (rather than by a list of "plumbing"
+    # subcommands) is what makes that structural rather than an enumeration.
+    #
+    # fd 3 is pinned to the original stderr by the enclosing group. Do NOT write
+    # `>&2` inside the process substitutions: bash applies redirections left to
+    # right, so by the time `1> >(...)` is expanded fd 2 is already the *stderr
+    # awk's* pipe, and the stdout awk would feed its sibling instead of the
+    # terminal.
+    {
+        # shellcheck disable=SC1090  # plugins are dynamically discovered
+        source "${__plugin_path}" \
+            2> >(awk -v prefix="${__stderr_prefix}" '{print prefix $0; fflush()}' >&3) \
+            1> >(awk -v prefix="${__stdout_prefix}" '{print prefix $0; fflush()}' >&3)
+        __exit_code=$?
+    } 3>&2
 
     debug "run-plugin() exiting with ${__exit_code}"
     return ${__exit_code}
